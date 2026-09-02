@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ENITOSIN STORE — Luxury Footwear & Premium Bags</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0512;
+      --bg-card: #150a21;
+      --royal-purple: #230d38;
+      --accent-purple: #4c1d75;
+      --gold-primary: #d4af37;
+      --gold-light: #f3e5ab;
+      --gold-gradient: linear-gradient(135deg, #d4af37 0%, #edd581 50%, #aa7c11 100%);
+      --text-main: #f8f5fa;
+      --text-muted: #bda3ce;
+      --border-gold: rgba(212, 175, 55, 0.3);
+      --font-serif: 'Cormorant Garamond', Georgia, serif;
+      --font-sans: 'Montserrat', system-ui, sans-serif;
+      --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, .brand-font {
+      font-family: var(--font-serif);
+      letter-spacing: 1px;
+    }
+
+    .container { width: 90%; max-width: 1300px; margin: 0 auto; }
+    .gold-text { background: var(--gold-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .gold-btn {
+      background: var(--gold-gradient);
+      color: #000;
+      font-weight: 600;
+      padding: 0.85rem 1.8rem;
+      border: none;
+      border-radius: 2px;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 1.5px;
+      transition: var(--transition);
+      display: inline-block;
+      text-decoration: none;
+    }
+    .gold-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(212, 175, 55, 0.35);
+    }
+    .outline-btn {
+      background: transparent;
+      color: var(--gold-primary);
+      border: 1px solid var(--gold-primary);
+      padding: 0.85rem 1.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 1.5px;
+      transition: var(--transition);
+      text-decoration: none;
+      display: inline-block;
+    }
+    .outline-btn:hover {
+      background: rgba(212, 175, 55, 0.1);
+      color: var(--gold-light);
+    }
+
+    /* HEADER & NAV */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(10, 5, 18, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-gold);
+    }
+    .nav-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.2rem 0;
+    }
+    .logo { font-size: 1.8rem; font-weight: 700; text-decoration: none; letter-spacing: 2px; }
+    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .nav-links a {
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: var(--transition);
+    }
+    .nav-links a:hover { color: var(--gold-primary); }
+    .nav-actions { display: flex; gap: 1.5rem; align-items: center; }
+    .icon-btn { background: none; border: none; color: var(--text-main); font-size: 1.2rem; cursor: pointer; position: relative; }
+    .cart-badge {
+      position: absolute;
+      top: -8px;
+      right: -10px;
+      background: var(--gold-primary);
+      color: #000;
+      font-size: 0.65rem;
+      font-weight: bold;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hamburger { display: none; font-size: 1.5rem; background: none; border: none; color: #fff; }
+
+    /* HERO SECTION */
+    .hero {
+      position: relative;
+      min-height: 85vh;
+      display: flex;
+      align-items: center;
+      background: linear-gradient(rgba(10, 5, 18, 0.65), rgba(10, 5, 18, 0.85)), url('https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
+      border-bottom: 1px solid var(--border-gold);
+    }
+    .hero-content { max-width: 650px; animation: fadeIn 1s ease-out; }
+    .hero-subtitle { color: var(--gold-primary); text-transform: uppercase; letter-spacing: 3px; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.8rem; }
+    .hero-title { font-size: 3.5rem; line-height: 1.1; margin-bottom: 1.2rem; }
+    .hero-desc { color: var(--text-muted); font-size: 1.05rem; margin-bottom: 2rem; }
+    .hero-cta { display: flex; gap: 1rem; }
+
+    /* CATEGORIES */
+    .section-padding { padding: 5rem 0; }
+    .section-title { text-align: center; margin-bottom: 3rem; }
+    .section-title h2 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .section-title p { color: var(--text-muted); font-size: 0.95rem; }
+
+    .category-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
+    .category-card {
+      position: relative;
+      height: 380px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border-gold);
+    }
+    .category-card img { width: 100%; height: 100%; object-fit: cover; transition: var(--transition); }
+    .category-card:hover img { transform: scale(1.05); }
+    .category-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(10, 5, 18, 0.9) 0%, rgba(10, 5, 18, 0.2) 60%);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 2rem;
+    }
+
+    /* PRODUCTS GRID */
+    .filter-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+      background: var(--bg-card);
+      padding: 1rem;
+      border-radius: 4px;
+      border: 1px solid var(--border-gold);
+    }
+    .filter-group { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+    .filter-select {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      border: 1px solid var(--border-gold);
+      padding: 0.5rem 1rem;
+      border-radius: 2px;
+      font-family: var(--font-sans);
+    }
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2rem; }
+    .product-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-gold);
+      border-radius: 4px;
+      overflow: hidden;
+      transition: var(--transition);
+      position: relative;
+    }
+    .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+    .product-badge {
+      position: absolute;
+      top: 10px; left: 10px;
+      background: var(--gold-gradient);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.65rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 2px;
+      z-index: 2;
+      text-transform: uppercase;
+    }
+    .product-img-wrap { position: relative; height: 280px; overflow: hidden; background: #000; }
+    .product-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: var(--transition); }
+    .product-card:hover .product-img-wrap img { transform: scale(1.08); }
+    .product-actions {
+      position: absolute;
+      bottom: -50px;
+      left: 0; right: 0;
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.8rem;
+      background: rgba(10,5,18,0.85);
+      backdrop-filter: blur(5px);
+      transition: var(--transition);
+    }
+    .product-card:hover .product-actions { bottom: 0; }
+    .product-info { padding: 1.2rem; }
+    .product-cat { color: var(--gold-primary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
+    .product-title { font-size: 1.1rem; margin: 0.3rem 0; color: var(--text-main); }
+    .product-price { font-weight: 600; font-size: 1.05rem; }
+    .old-price { text-decoration: line-through; color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem; }
+
+    /* PROMO BANNER */
+    .promo-banner {
+      background: linear-gradient(rgba(35, 13, 56, 0.85), rgba(10, 5, 18, 0.95)), url('https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1600&q=80') center/cover;
+      border-y: 1px solid var(--border-gold);
+      padding: 6rem 0;
+      text-align: center;
+    }
+
+    /* REVIEWS & NEWSLETTER */
+    .review-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-gold);
+      padding: 2rem;
+      border-radius: 4px;
+      margin: 0 1rem;
+    }
+    .newsletter-section {
+      background: var(--royal-purple);
+      border: 1px solid var(--border-gold);
+      padding: 4rem 2rem;
+      text-align: center;
+      border-radius: 4px;
+    }
+    .newsletter-form { display: flex; max-width: 500px; margin: 1.5rem auto 0; gap: 0.5rem; }
+    .newsletter-form input {
+      flex: 1;
+      padding: 0.8rem;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-gold);
+      color: #fff;
+      border-radius: 2px;
+    }
+
+    /* FOOTER */
+    footer { background: #050208; border-top: 1px solid var(--border-gold); padding: 4rem 0 2rem; font-size: 0.85rem; color: var(--text-muted); }
+    .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2.5rem; margin-bottom: 3rem; }
+    .footer-col h4 { color: var(--gold-primary); font-size: 1.1rem; margin-bottom: 1.2rem; }
+    .footer-col ul { list-style: none; }
+    .footer-col ul li { margin-bottom: 0.6rem; }
+    .footer-col ul a { color: var(--text-muted); text-decoration: none; transition: var(--transition); }
+    .footer-col ul a:hover { color: var(--gold-light); }
+    .footer-bottom { text-align: center; border-top: 1px solid rgba(212,175,55,0.1); padding-top: 2rem; }
+
+    /* CART SLIDE-OVER */
+    .cart-drawer {
+      position: fixed;
+      top: 0; right: -400px;
+      width: 100%; max-width: 380px;
+      height: 100vh;
+      background: var(--bg-card);
+      border-left: 1px solid var(--border-gold);
+      box-shadow: -10px 0 30px rgba(0,0,0,0.8);
+      z-index: 2000;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem;
+    }
+    .cart-drawer.active { right: 0; }
+    .cart-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-gold); padding-bottom: 1rem; }
+    .cart-items { flex: 1; overflow-y: auto; margin: 1rem 0; }
+    .cart-item { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 1rem; }
+    .cart-item img { width: 60px; height: 60px; object-fit: cover; border-radius: 2px; }
+    .cart-footer { border-top: 1px solid var(--border-gold); padding-top: 1rem; }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 3000;
+      display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-content {
+      background: var(--bg-card); border: 1px solid var(--border-gold);
+      width: 90%; max-width: 800px; border-radius: 4px; padding: 2rem; position: relative;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .close-modal { position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 20px; right: 20px; background: var(--gold-gradient); color: #000;
+      padding: 0.8rem 1.5rem; border-radius: 2px; font-weight: 600; z-index: 4000;
+      transform: translateY(100px); opacity: 0; transition: var(--transition);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    #searchInput.search-pulse {
+      animation: searchPulse 1s ease;
+    }
+    @keyframes searchPulse {
+      0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.6); border-color: var(--gold-primary); }
+      100% { box-shadow: 0 0 0 10px rgba(212, 175, 55, 0); border-color: var(--border-gold); }
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hamburger { display: block; }
+      .hero-title { font-size: 2.4rem; }
+      .cart-drawer { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVIGATION -->
+  <header>
+    <div class="container nav-container">
+      <a href="index.html" class="logo brand-font gold-text">ENITOSIN</a>
+      <ul class="nav-links">
+        <li><a href="#home">Home</a></li>
+        <li><a href="#shop">Shop</a></li>
+        <li><a href="#shoes">Shoes</a></li>
+        <li><a href="#bags">Bags</a></li>
+        <li><a href="#new">New Arrivals</a></li>
+        <li><a href="#about">About</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="icon-btn" onclick="toggleSearch()" title="Search">🔍</button>
+        <button class="icon-btn" onclick="toggleCart()" title="Cart">
+          🛒 <span class="cart-badge" id="cartCount">0</span>
+        </button>
+        <button class="hamburger" onclick="toggleMobileNav()">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section id="home" class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <p class="hero-subtitle">WELCOME TO ENITOSIN STORE</p>
+        <h1 class="hero-title">Step into Luxury. Discover Footwear & Accessories Designed for Your Style.</h1>
+        <p class="hero-desc">Handcrafted Italian leather shoes, bespoke loafers, and timeless designer bags curated for fashion connoisseurs.</p>
+        <div class="hero-cta">
+          <a href="#shop" class="gold-btn">Shop Now</a>
+          <a href="#new" class="outline-btn">Explore Collection</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section id="shoes" class="section-padding">
+    <div class="container">
+      <div class="section-title">
+        <h2 class="gold-text">Curated Collections</h2>
+        <p>Explore our signature lines of high-fashion shoes and leather bags.</p>
+      </div>
+      <div class="category-grid">
+        <div class="category-card">
+          <img src="https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80" alt="Shoes Category">
+          <div class="category-overlay">
+            <h3>Footwear Collection</h3>
+            <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom: 0.8rem;">Loafers, Boots, Heels, & Sneakers</p>
+            <div><a href="#shop" class="gold-btn" style="padding:0.4rem 1rem; font-size:0.7rem;">Explore Shoes</a></div>
+          </div>
+        </div>
+        <div class="category-card" id="bags">
+          <img src="https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80" alt="Bags Category">
+          <div class="category-overlay">
+            <h3>Luxury Bags</h3>
+            <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom: 0.8rem;">Handbags, Crossbody & Travel Bags</p>
+            <div><a href="#shop" class="gold-btn" style="padding:0.4rem 1rem; font-size:0.7rem;">Explore Bags</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCT SHOWCASE -->
+  <section id="shop" class="section-padding" style="background: rgba(0,0,0,0.2);">
+    <div class="container">
+      <div class="section-title">
+        <h2 class="gold-text">Featured Products</h2>
+        <p>Impeccable style meets uncompromising quality.</p>
+      </div>
+
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
+        <div class="filter-group">
+          <select id="categoryFilter" class="filter-select" onchange="filterProducts()">
+            <option value="all">All Categories</option>
+            <option value="shoes">Shoes</option>
+            <option value="bags">Bags</option>
+          </select>
+          <select id="priceFilter" class="filter-select" onchange="filterProducts()">
+            <option value="all">Price Range</option>
+            <option value="under200">Under $200</option>
+            <option value="200to500">$200 - $500</option>
+            <option value="over500">Over $500</option>
+          </select>
+        </div>
+        <div>
+          <input type="text" id="searchInput" placeholder="Search products..." class="filter-select" style="width:200px;" onkeyup="filterProducts()">
+        </div>
+      </div>
+
+      <!-- PRODUCT GRID -->
+      <div class="product-grid" id="productContainer">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+  </section>
+
+  <!-- PROMO BANNER -->
+  <section class="promo-banner">
+    <div class="container">
+      <p class="hero-subtitle">EXCLUSIVITY REDEFINED</p>
+      <h2 style="font-size: 2.8rem; margin-bottom: 1rem;" class="gold-text">THE NEW SEASON COLLECTION</h2>
+      <p style="max-width: 600px; margin: 0 auto 2rem; color: var(--text-muted);">Crafted from premium full-grain Italian leather with hand-polished metallic accents.</p>
+      <a href="#shop" class="gold-btn">Discover The Lookbook</a>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section class="section-padding">
+    <div class="container">
+      <div class="section-title">
+        <h2 class="gold-text">Client Experiences</h2>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+        <div class="review-card">
+          <p style="font-style: italic; color: var(--text-muted);">"Enitosin shoes are in a league of their own. The handcrafted loafers I bought fit impeccably and turn heads at every business gala."</p>
+          <p style="margin-top: 1rem; font-weight:600; color:var(--gold-primary);">- Alexander V., London</p>
+        </div>
+        <div class="review-card">
+          <p style="font-style: italic; color: var(--text-muted);">"The leather bag quality easily rivals top Paris fashion houses. Delivery was swift, and the gold packaging felt like pure royalty."</p>
+          <p style="margin-top: 1rem; font-weight:600; color:var(--gold-primary);">- Sophia M., New York</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NEWSLETTER -->
+  <section class="container" style="margin-bottom: 5rem;">
+    <div class="newsletter-section">
+      <h2 class="gold-text" style="font-size: 2rem; margin-bottom: 0.5rem;">Join the Inner Circle</h2>
+      <p style="color: var(--text-muted);">Subscribe for private previews, couture updates, and VIP access.</p>
+      <form class="newsletter-form" onsubmit="handleSubscribe(event)">
+        <input type="email" placeholder="Enter your email address" required>
+        <button type="submit" class="gold-btn">Subscribe</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <h4 class="brand-font">ENITOSIN STORE</h4>
+          <p>The premier global destination for luxury footwear and designer leather bags.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Customer Care</h4>
+          <ul>
+            <li><a href="#">Contact Us</a></li>
+            <li><a href="#">Shipping & Express Delivery</a></li>
+            <li><a href="#">Returns & Exchanges</a></li>
+            <li><a href="#">Bespoke Fitting Services</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>The Brand</h4>
+          <ul>
+            <li><a href="#">About Enitosin</a></li>
+            <li><a href="#">Craftsmanship</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Privacy Policy</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Contact Information</h4>
+          <p style="margin-bottom:0.5rem;">📍 740 Fifth Avenue, New York, NY</p>
+          <p style="margin-bottom:0.5rem;">✉️ vip@enitosinstore.com</p>
+          <p>📞 +1 (800) 555-ENITOSIN</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 ENITOSIN STORE. All rights reserved. Designed for ultimate luxury.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- CART SLIDE-OVER DRAWER -->
+  <div class="cart-drawer" id="cartDrawer">
+    <div class="cart-header">
+      <h3 class="gold-text">Your Shopping Bag</h3>
+      <button class="close-modal" onclick="toggleCart()">✕</button>
+    </div>
+    <div class="cart-items" id="cartItemsContainer">
+      <!-- Cart items populate dynamically -->
+    </div>
+    <div class="cart-footer">
+      <div style="display:flex; justify-content:space-between; margin-bottom: 1rem;">
+        <span>Subtotal:</span>
+        <span id="cartSubtotal" style="font-weight:bold; color:var(--gold-primary);">$0.00</span>
+      </div>
+      <button class="gold-btn" style="width:100%; text-align:center;" onclick="openCheckout()">Proceed To Checkout</button>
+    </div>
+  </div>
+
+  <!-- CHECKOUT MODAL -->
+  <div class="modal-overlay" id="checkoutModal">
+    <div class="modal-content">
+      <button class="close-modal" onclick="closeCheckout()">✕</button>
+      <h2 class="gold-text" style="margin-bottom: 1.5rem;">Checkout — Enitosin Store</h2>
+      <form onsubmit="processOrder(event)">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem;">Full Name</label>
+            <input type="text" id="checkoutName" required style="width:100%; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem;">Email Address</label>
+            <input type="email" id="checkoutEmail" required style="width:100%; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+          </div>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem;">Shipping Address</label>
+          <input type="text" id="checkoutAddress" required style="width:100%; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+        </div>
+        <div style="border-top:1px solid var(--border-gold); padding-top:1rem; margin-top:1rem; text-align:right;">
+          <p style="margin-bottom:1rem; color:var(--text-muted);">Total Due: <span id="checkoutTotal" style="color:var(--gold-primary); font-weight:bold;">$0.00</span></p>
+          <button type="submit" class="gold-btn">Place Order (Demo)</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- QUICK VIEW MODAL -->
+  <div class="modal-overlay" id="quickViewModal">
+    <div class="modal-content" id="quickViewContent">
+      <!-- Dynamic Quick View content -->
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast" id="toast">Item added to your luxury bag</div>
+
+  <script>
+    // ------------------------------------------------------------------
+    // BACKEND CONNECTION
+    // Products now come from the shared Express API (server.js) instead
+    // of a hardcoded array, so anything the admin adds/removes in
+    // admin.html shows up here automatically on refresh.
+    // ------------------------------------------------------------------
+    const API_BASE = window.location.origin.includes('null') || window.location.protocol === 'file:'
+      ? 'http://localhost:3000/api'   // fallback if this file is opened directly (file://) instead of served by Express
+      : '/api';
+
+    let products = [];             // populated by loadProducts()
+    let cart = JSON.parse(localStorage.getItem('enitosin_cart')) || [];
+
+    async function loadProducts() {
+      try {
+        const res = await fetch(`${API_BASE}/products`);
+        if (!res.ok) throw new Error('Failed to load products');
+        products = await res.json();
+      } catch (err) {
+        console.error('Could not reach backend, is server.js running?', err);
+        showToast('Could not connect to the store server.');
+        products = [];
+      }
+      renderProducts(products);
+    }
+
+    function renderProducts(items) {
+      const container = document.getElementById('productContainer');
+      container.innerHTML = '';
+      if(items.length === 0) {
+        container.innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding: 2rem; color:var(--text-muted);">No products match your current search criteria.</p>`;
+        return;
+      }
+      items.forEach(p => {
+        container.innerHTML += `
+          <div class="product-card">
+            ${p.badge ? `<span class="product-badge">${p.badge}</span>` : ''}
+            <div class="product-img-wrap">
+              <img src="${p.image}" alt="${p.name}">
+              <div class="product-actions">
+                <button class="outline-btn" style="padding:0.4rem 0.8rem; font-size:0.7rem;" onclick="openQuickView(${p.id})">Quick View</button>
+                <button class="gold-btn" style="padding:0.4rem 0.8rem; font-size:0.7rem;" onclick="addToCart(${p.id})">Add To Bag</button>
+              </div>
+            </div>
+            <div class="product-info">
+              <span class="product-cat">${p.category}</span>
+              <h3 class="product-title">${p.name}</h3>
+              <div class="product-price">
+                $${p.price.toFixed(2)}
+                ${p.oldPrice ? `<span class="old-price">$${p.oldPrice.toFixed(2)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function filterProducts() {
+      const cat = document.getElementById('categoryFilter').value;
+      const price = document.getElementById('priceFilter').value;
+      const query = document.getElementById('searchInput').value.toLowerCase();
+
+      let filtered = products.filter(p => {
+        const matchesCat = cat === 'all' || p.category === cat;
+        const matchesSearch = p.name.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query);
+        let matchesPrice = true;
+        if (price === 'under200') matchesPrice = p.price < 200;
+        else if (price === '200to500') matchesPrice = p.price >= 200 && p.price <= 500;
+        else if (price === 'over500') matchesPrice = p.price > 500;
+
+        return matchesCat && matchesSearch && matchesPrice;
+      });
+
+      renderProducts(filtered);
+    }
+
+    /* CART MANAGEMENT */
+    function addToCart(id) {
+      const prod = products.find(p => p.id === id);
+      const existing = cart.find(item => item.id === id);
+      if(existing) {
+        existing.qty += 1;
+      } else {
+        cart.push({...prod, qty: 1});
+      }
+      saveCart();
+      showToast(`${prod.name} added to your bag.`);
+    }
+
+    function updateQty(id, delta) {
+      const item = cart.find(i => i.id === id);
+      if(item) {
+        item.qty += delta;
+        if(item.qty <= 0) cart = cart.filter(i => i.id !== id);
+      }
+      saveCart();
+    }
+
+    function saveCart() {
+      localStorage.setItem('enitosin_cart', JSON.stringify(cart));
+      updateCartUI();
+    }
+
+    function updateCartUI() {
+      const count = cart.reduce((acc, item) => acc + item.qty, 0);
+      document.getElementById('cartCount').innerText = count;
+
+      const container = document.getElementById('cartItemsContainer');
+      container.innerHTML = '';
+      let total = 0;
+
+      cart.forEach(item => {
+        total += item.price * item.qty;
+        container.innerHTML += `
+          <div class="cart-item">
+            <img src="${item.image}" alt="${item.name}">
+            <div style="flex:1;">
+              <h4 style="font-size:0.9rem;">${item.name}</h4>
+              <p style="color:var(--gold-primary); font-size:0.85rem;">$${item.price.toFixed(2)}</p>
+              <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.3rem;">
+                <button onclick="updateQty(${item.id}, -1)" style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; width:20px; height:20px;">-</button>
+                <span style="font-size:0.85rem;">${item.qty}</span>
+                <button onclick="updateQty(${item.id}, 1)" style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; width:20px; height:20px;">+</button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      document.getElementById('cartSubtotal').innerText = `$${total.toFixed(2)}`;
+      document.getElementById('checkoutTotal').innerText = `$${total.toFixed(2)}`;
+    }
+
+    function toggleSearch() {
+      const shopSection = document.getElementById('shop');
+      const searchBox = document.getElementById('searchInput');
+      if (!shopSection || !searchBox) return;
+
+      shopSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // give the smooth scroll a moment to land, then focus + pulse the field
+      setTimeout(() => {
+        searchBox.focus();
+        searchBox.classList.add('search-pulse');
+        setTimeout(() => searchBox.classList.remove('search-pulse'), 1000);
+      }, 400);
+    }
+
+    function toggleCart() {
+      document.getElementById('cartDrawer').classList.toggle('active');
+    }
+
+    function openQuickView(id) {
+      const p = products.find(prod => prod.id === id);
+      const content = document.getElementById('quickViewContent');
+      content.innerHTML = `
+        <button class="close-modal" onclick="closeQuickView()">✕</button>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:2rem; margin-top:1rem;">
+          <img src="${p.image}" alt="${p.name}" style="width:100%; border-radius:4px; border:1px solid var(--border-gold);">
+          <div>
+            <span class="product-cat">${p.category}</span>
+            <h2 class="gold-text" style="margin:0.5rem 0;">${p.name}</h2>
+            <p style="font-size:1.3rem; font-weight:bold; margin-bottom:1rem;">$${p.price.toFixed(2)}</p>
+            <p style="color:var(--text-muted); margin-bottom:1.5rem;">${p.desc}</p>
+            <button class="gold-btn" onclick="addToCart(${p.id}); closeQuickView();">Add To Shopping Bag</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('quickViewModal').classList.add('active');
+    }
+
+    function closeQuickView() { document.getElementById('quickViewModal').classList.remove('active'); }
+    function openCheckout() { toggleCart(); document.getElementById('checkoutModal').classList.add('active'); }
+    function closeCheckout() { document.getElementById('checkoutModal').classList.remove('active'); }
+
+    async function processOrder(e) {
+      e.preventDefault();
+
+      const name = document.getElementById('checkoutName').value.trim();
+      const email = document.getElementById('checkoutEmail').value.trim();
+      const address = document.getElementById('checkoutAddress').value.trim();
+
+      if (!cart.length) {
+        showToast('Your shopping bag is empty.');
+        return;
+      }
+
+      const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+      const payload = {
+        customer: { name, email, address },
+        items: cart.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+        total,
+      };
+
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Placing Order...';
+
+      try {
+        const res = await fetch(`${API_BASE}/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Order failed');
+        const order = await res.json();
+
+        showToast(`Order ${order.id} placed! It now appears in the admin log.`);
+        cart = [];
+        saveCart();
+        closeCheckout();
+        e.target.reset();
+      } catch (err) {
+        console.error(err);
+        showToast('Something went wrong placing your order. Please try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Place Order (Demo)';
+      }
+    }
+
+    function handleSubscribe(e) {
+      e.preventDefault();
+      showToast("Thank you for joining the Enitosin Inner Circle.");
+      e.target.reset();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // INIT
+    loadProducts();
+    updateCartUI();
+  </script>
+</body>
+</html>
