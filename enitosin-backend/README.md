@@ -37,16 +37,15 @@ Then open:
 - Admin dashboard: **http://localhost:3000/admin.html**
 
 The admin dashboard will ask for an **admin key** the first time you open
-it. The default key is:
+it. The `ADMIN_KEY` environment variable is required; there is no hardcoded
+default admin key. Set it locally before starting the server, for example:
 
 ```
-enitosin-admin-2026
+ADMIN_KEY=my-secret npm start
 ```
 
-You can change it by setting the `ADMIN_KEY` environment variable before
-starting the server, e.g. `ADMIN_KEY=my-secret npm start`. The key is
-stored in the browser's `localStorage` after first entry, so you won't be
-asked again on that browser.
+The browser stores the entered key in `localStorage` so you won't be asked
+again on that browser.
 
 ## Try the connection yourself
 
@@ -75,10 +74,12 @@ This is a standard Node/Express app, so it deploys to Render like any other:
    - **Build Command:** `npm install`
    - **Start Command:** `npm start`
    - **Instance Type:** Free is fine to start.
-4. Under **Environment Variables**, add `ADMIN_KEY` set to a real secret of your
-   choosing (don't reuse `enitosin-admin-2026` publicly). Render automatically
-   provides `PORT`, which `server.js` already reads.
-5. Deploy. Render gives you a public URL — your storefront will be at
+4. Set **Root Directory** to `enitosin-backend` if your GitHub repository has
+   the application inside an `enitosin-backend/` subfolder. Set **Build Command**
+   to `npm install` and **Start Command** to `npm start`.
+5. Under **Environment Variables**, add `ADMIN_KEY` and set it to a strong secret
+   of your choosing. Render automatically provides `PORT`, which `server.js` reads.
+6. Deploy. Render gives you a public URL — your storefront will be at
    `https://your-service.onrender.com/index.html` and the admin dashboard at
    `https://your-service.onrender.com/admin.html`.
 

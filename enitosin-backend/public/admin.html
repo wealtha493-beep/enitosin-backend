@@ -395,6 +395,12 @@
     let adminKey = localStorage.getItem('enitosin_admin_key') || '';
     let adminProducts = [];
 
+    function escapeHTML(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[char]));
+    }
+
     function authHeaders() {
       return { 'Content-Type': 'application/json', 'x-admin-key': adminKey };
     }
@@ -432,12 +438,12 @@
         const stockClass = p.stock === 'In Stock' ? 'in-stock' : 'low-stock';
         tbody.innerHTML += `
           <tr>
-            <td>#EN-${p.id}</td>
-            <td><img src="${p.image}" alt="${p.name}" class="table-img"></td>
-            <td style="font-weight:600;">${p.name}</td>
-            <td style="text-transform:capitalize;">${p.category}</td>
-            <td>$${p.price.toFixed(2)}</td>
-            <td><span class="status-badge ${stockClass}">${p.stock}</span></td>
+            <td>#EN-${escapeHTML(p.id)}</td>
+            <td><img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" class="table-img"></td>
+            <td style="font-weight:600;">${escapeHTML(p.name)}</td>
+            <td style="text-transform:capitalize;">${escapeHTML(p.category)}</td>
+            <td>$${Number(p.price).toFixed(2)}</td>
+            <td><span class="status-badge ${escapeHTML(stockClass)}">${escapeHTML(p.stock)}</span></td>
             <td>
               <button onclick="deleteProduct(${p.id})" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Delete</button>
             </td>
@@ -516,11 +522,11 @@
         const statusClass = o.status === 'Shipped' ? 'in-stock' : 'low-stock';
         tbody.innerHTML += `
           <tr>
-            <td>#${o.id}</td>
-            <td>${o.customer.name}<br><span style="color:var(--text-muted); font-size:0.75rem;">${o.customer.email}</span></td>
-            <td>${itemsSummary}</td>
-            <td>$${o.total.toFixed(2)}</td>
-            <td><span class="status-badge ${statusClass}">${o.status}</span></td>
+            <td>#${escapeHTML(o.id)}</td>
+            <td>${escapeHTML(o.customer.name)}<br><span style="color:var(--text-muted); font-size:0.75rem;">${escapeHTML(o.customer.email)}</span></td>
+            <td>${escapeHTML(itemsSummary)}</td>
+            <td>$${Number(o.total).toFixed(2)}</td>
+            <td><span class="status-badge ${escapeHTML(statusClass)}">${escapeHTML(o.status)}</span></td>
           </tr>
         `;
       });
@@ -554,8 +560,8 @@
         const time = new Date(log.timestamp).toLocaleString();
         container.innerHTML += `
           <div class="log-entry">
-            <div><span class="log-type ${log.type}">${log.type.replace('_', ' ')}</span>${log.message}</div>
-            <span class="log-time">${time}</span>
+            <div><span class="log-type ${escapeHTML(log.type)}">${escapeHTML(log.type.replaceAll('_', ' '))}</span>${escapeHTML(log.message)}</div>
+            <span class="log-time">${escapeHTML(time)}</span>
           </div>
         `;
       });

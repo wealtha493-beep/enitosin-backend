@@ -18,18 +18,30 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_KEY = process.env.ADMIN_KEY || 'enitosin-admin-2026';
+const ADMIN_KEY = process.env.ADMIN_KEY;
+
+if (!ADMIN_KEY) {
+  console.error('ERROR: ADMIN_KEY environment variable is required.');
+  process.exit(1);
+}
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const CUSTOMERS_FILE = path.join(DATA_DIR, 'customers.json');
 
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 app.use(cors());
-app.use(express.json({ limit: '15mb' })); // generous limit: admin product images arrive as base64 data URLs
+app.use(express.json({ limit: '15mb' })); // admin product images arrive as base64 data URLs
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------- tiny JSON "database" helpers ----------
@@ -41,13 +53,17 @@ function readJSON(file, fallback) {
   }
 }
 function writeJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tempFile = `${file}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+  fs.renameSync(tempFile, file);
 }
 
 // ---------- admin auth (simple shared-key check) ----------
 function requireAdmin(req, res, next) {
   const key = req.header('x-admin-key');
-  if (key !== ADMIN_KEY) {
+  if (!key || key.length !== ADMIN_KEY.length || !crypto.timingSafeEqual(Buffer.from(key), Buffer.from(ADMIN_KEY))) {
+    logActivity('admin_login_fail', 'Rejected admin authentication attempt');
     return res.status(401).json({ error: 'Unauthorized: missing or invalid admin key.' });
   }
   next();
@@ -67,6 +83,11 @@ function logActivity(type, message, meta = {}) {
   // keep the log from growing forever
   writeJSON(LOG_FILE, logs.slice(0, 500));
 }
+
+// Health check (useful for Render and monitoring)
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
 // =====================================================================
 // PRODUCTS
@@ -90,22 +111,31 @@ app.get('/api/products/:id', (req, res) => {
 app.post('/api/products', requireAdmin, (req, res) => {
   const { name, category, price, image, badge, oldPrice, rating, desc, stock } = req.body;
 
-  if (!name || !category || price === undefined || !image) {
-    return res.status(400).json({ error: 'name, category, price and image are required.' });
+  const cleanName = String(name || '').trim();
+  const cleanCategory = String(category || '').trim();
+  const cleanImage = String(image || '').trim();
+  const numericPrice = Number(price);
+  const numericOldPrice = oldPrice === undefined || oldPrice === null || oldPrice === '' ? null : Number(oldPrice);
+
+  if (!cleanName || !cleanCategory || !cleanImage || !Number.isFinite(numericPrice) || numericPrice < 0) {
+    return res.status(400).json({ error: 'Valid name, category, price and image are required.' });
+  }
+  if (numericOldPrice !== null && (!Number.isFinite(numericOldPrice) || numericOldPrice < 0)) {
+    return res.status(400).json({ error: 'oldPrice must be a valid non-negative number.' });
   }
 
   const products = readJSON(PRODUCTS_FILE, []);
   const newProduct = {
     id: Date.now(),
-    name,
-    category,
-    price: parseFloat(price),
-    oldPrice: oldPrice ? parseFloat(oldPrice) : null,
-    badge: badge || null,
-    rating: rating || '5.0',
-    desc: desc || '',
-    image,
-    stock: stock || 'In Stock',
+    name: cleanName,
+    category: cleanCategory,
+    price: numericPrice,
+    oldPrice: numericOldPrice,
+    badge: badge ? String(badge).trim() : null,
+    rating: rating ? String(rating).trim() : '5.0',
+    desc: desc ? String(desc).trim() : '',
+    image: cleanImage,
+    stock: stock ? String(stock).trim() : 'In Stock',
   };
 
   products.push(newProduct);
@@ -147,32 +177,52 @@ app.delete('/api/products/:id', requireAdmin, (req, res) => {
 
 // Public: customer places an order from the storefront checkout form
 app.post('/api/orders', (req, res) => {
-  const { customer, items, total } = req.body;
+  const { customer, items } = req.body || {};
 
-  if (!customer || !customer.name || !customer.email || !items || !items.length) {
-    return res.status(400).json({ error: 'customer (name, email) and items are required.' });
+  const name = String(customer?.name || '').trim();
+  const email = String(customer?.email || '').trim().toLowerCase();
+  const address = String(customer?.address || '').trim();
+
+  if (!name || !email || !address || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Customer name, email, address and at least one item are required.' });
   }
 
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!emailOk) return res.status(400).json({ error: 'Please provide a valid email address.' });
+  if (items.length > 50) return res.status(400).json({ error: 'Too many items in one order.' });
+
+  // Re-read prices from the server catalog. Never trust the total or prices sent by the browser.
+  const products = readJSON(PRODUCTS_FILE, []);
+  const normalizedItems = [];
+  for (const item of items) {
+    const product = products.find(p => String(p.id) === String(item.id));
+    const qty = Number(item.qty);
+    if (!product || !Number.isInteger(qty) || qty < 1 || qty > 99) {
+      return res.status(400).json({ error: 'One or more order items are invalid or unavailable.' });
+    }
+    normalizedItems.push({ id: product.id, name: product.name, price: product.price, qty });
+  }
+
+  const total = normalizedItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const orders = readJSON(ORDERS_FILE, []);
   const newOrder = {
     id: 'EN-' + (9000 + orders.length + 1),
-    customer,
-    items,
-    total: parseFloat(total) || items.reduce((sum, i) => sum + i.price * i.qty, 0),
+    customer: { name, email, address },
+    items: normalizedItems,
+    total: Number(total.toFixed(2)),
     status: 'Processing',
     createdAt: new Date().toISOString(),
   };
   orders.unshift(newOrder);
   writeJSON(ORDERS_FILE, orders);
 
-  // track distinct customers (feeds the "Registered Clients" metric)
   const customers = readJSON(CUSTOMERS_FILE, []);
-  if (!customers.find(c => c.email === customer.email)) {
-    customers.push({ name: customer.name, email: customer.email, joinedAt: new Date().toISOString() });
+  if (!customers.find(c => String(c.email).toLowerCase() === email)) {
+    customers.push({ name, email, joinedAt: new Date().toISOString() });
     writeJSON(CUSTOMERS_FILE, customers);
   }
 
-  logActivity('order', `New order ${newOrder.id} from ${customer.name} — $${newOrder.total.toFixed(2)}`, { orderId: newOrder.id });
+  logActivity('order', `New order ${newOrder.id} from ${name} — $${newOrder.total.toFixed(2)}`, { orderId: newOrder.id });
 
   res.status(201).json(newOrder);
 });
@@ -185,7 +235,11 @@ app.get('/api/orders', requireAdmin, (req, res) => {
 
 // Admin only: update order status (e.g. mark Shipped)
 app.put('/api/orders/:id/status', requireAdmin, (req, res) => {
-  const { status } = req.body;
+  const { status } = req.body || {};
+  const allowedStatuses = ['Processing', 'Shipped', 'Delivered', 'Cancelled'];
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Invalid order status.' });
+  }
   const orders = readJSON(ORDERS_FILE, []);
   const idx = orders.findIndex(o => o.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Order not found.' });
@@ -249,5 +303,5 @@ app.listen(PORT, () => {
   console.log(`\n  ENITOSIN backend running → http://localhost:${PORT}`);
   console.log(`  Storefront:       http://localhost:${PORT}/index.html`);
   console.log(`  Admin dashboard:  http://localhost:${PORT}/admin.html`);
-  console.log(`  Admin key:        ${ADMIN_KEY}  (change via ADMIN_KEY env var)\n`);
+  console.log('  Admin key:        configured via environment variable\n');
 });

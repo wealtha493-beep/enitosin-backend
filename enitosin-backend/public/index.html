@@ -587,6 +587,12 @@
     let products = [];             // populated by loadProducts()
     let cart = JSON.parse(localStorage.getItem('enitosin_cart')) || [];
 
+    function escapeHTML(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[char]));
+    }
+
     async function loadProducts() {
       try {
         const res = await fetch(`${API_BASE}/products`);
@@ -610,9 +616,9 @@
       items.forEach(p => {
         container.innerHTML += `
           <div class="product-card">
-            ${p.badge ? `<span class="product-badge">${p.badge}</span>` : ''}
+            ${p.badge ? `<span class="product-badge">${escapeHTML(p.badge)}</span>` : ''}
             <div class="product-img-wrap">
-              <img src="${p.image}" alt="${p.name}">
+              <img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}">
               <div class="product-actions">
                 <button class="outline-btn" style="padding:0.4rem 0.8rem; font-size:0.7rem;" onclick="openQuickView(${p.id})">Quick View</button>
                 <button class="gold-btn" style="padding:0.4rem 0.8rem; font-size:0.7rem;" onclick="addToCart(${p.id})">Add To Bag</button>
@@ -691,8 +697,8 @@
           <div class="cart-item">
             <img src="${item.image}" alt="${item.name}">
             <div style="flex:1;">
-              <h4 style="font-size:0.9rem;">${item.name}</h4>
-              <p style="color:var(--gold-primary); font-size:0.85rem;">$${item.price.toFixed(2)}</p>
+              <h4 style="font-size:0.9rem;">${escapeHTML(item.name)}</h4>
+              <p style="color:var(--gold-primary); font-size:0.85rem;">$${Number(item.price).toFixed(2)}</p>
               <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.3rem;">
                 <button onclick="updateQty(${item.id}, -1)" style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; width:20px; height:20px;">-</button>
                 <span style="font-size:0.85rem;">${item.qty}</span>
