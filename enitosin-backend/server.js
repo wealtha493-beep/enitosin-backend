@@ -69,7 +69,7 @@ async function sendOrderNotificationEmail(order) {
   if (!recipient) return;
 
   const itemsList = order.items
-    .map(item => `  • ${item.name}  x${item.qty}  —  $${(item.price * item.qty).toFixed(2)}`)
+    .map(item => `  • ${item.name}  x${item.qty}  —  ₦${(item.price * item.qty).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
     .join('\n');
 
   const textBody = [
@@ -82,13 +82,13 @@ async function sendOrderNotificationEmail(order) {
     'Items:',
     itemsList,
     '',
-    `Total: $${order.total.toFixed(2)}`,
+    `Total: ₦${order.total.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     `Status: ${order.status}`,
     `Placed: ${new Date(order.createdAt).toLocaleString()}`,
   ].join('\n');
 
   const itemsHtml = order.items
-    .map(item => `<tr><td style="padding:4px 8px;">${item.name}</td><td style="padding:4px 8px;">x${item.qty}</td><td style="padding:4px 8px;">$${(item.price * item.qty).toFixed(2)}</td></tr>`)
+    .map(item => `<tr><td style="padding:4px 8px;">${item.name}</td><td style="padding:4px 8px;">x${item.qty}</td><td style="padding:4px 8px;">₦${(item.price * item.qty).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>`)
     .join('');
 
   const htmlBody = `
@@ -101,7 +101,7 @@ async function sendOrderNotificationEmail(order) {
         <thead><tr><th style="text-align:left; padding:4px 8px;">Item</th><th style="text-align:left; padding:4px 8px;">Qty</th><th style="text-align:left; padding:4px 8px;">Subtotal</th></tr></thead>
         <tbody>${itemsHtml}</tbody>
       </table>
-      <p><strong>Total: $${order.total.toFixed(2)}</strong><br>
+      <p><strong>Total: ₦${order.total.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong><br>
          Status: ${order.status}<br>
          Placed: ${new Date(order.createdAt).toLocaleString()}</p>
     </div>`;
@@ -110,7 +110,7 @@ async function sendOrderNotificationEmail(order) {
     const { error } = await resendClient.emails.send({
       from: RESEND_FROM_EMAIL,
       to: recipient,
-      subject: `New Order ${order.id} — $${order.total.toFixed(2)}`,
+      subject: `New Order ${order.id} — ₦${order.total.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       text: textBody,
       html: htmlBody,
     });
@@ -239,7 +239,35 @@ app.put('/api/products/:id', requireAdmin, (req, res) => {
   const idx = products.findIndex(p => String(p.id) === String(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Product not found.' });
 
-  products[idx] = { ...products[idx], ...req.body, id: products[idx].id };
+  const current = products[idx];
+  const name = String(req.body.name ?? current.name).trim();
+  const category = String(req.body.category ?? current.category).trim();
+  const price = Number(req.body.price ?? current.price);
+  const oldPrice = req.body.oldPrice === null || req.body.oldPrice === '' || req.body.oldPrice === undefined
+    ? (req.body.oldPrice === undefined ? current.oldPrice : null)
+    : Number(req.body.oldPrice);
+  const stock = String(req.body.stock ?? current.stock).trim();
+  const desc = String(req.body.desc ?? current.desc ?? '').trim();
+  const image = req.body.image === undefined ? current.image : String(req.body.image || '').trim();
+
+  if (!name || !category || !image || !Number.isFinite(price) || price < 0) {
+    return res.status(400).json({ error: 'Valid name, category, price and image are required.' });
+  }
+  if (oldPrice !== null && (!Number.isFinite(oldPrice) || oldPrice < 0)) {
+    return res.status(400).json({ error: 'oldPrice must be a valid non-negative number.' });
+  }
+
+  products[idx] = {
+    ...current,
+    name,
+    category,
+    price,
+    oldPrice,
+    stock: stock || 'In Stock',
+    desc,
+    image,
+  };
+
   writeJSON(PRODUCTS_FILE, products);
   logActivity('product_update', `Updated product "${products[idx].name}"`, { productId: products[idx].id });
 
@@ -310,7 +338,7 @@ app.post('/api/orders', (req, res) => {
     writeJSON(CUSTOMERS_FILE, customers);
   }
 
-  logActivity('order', `New order ${newOrder.id} from ${name} — $${newOrder.total.toFixed(2)}`, { orderId: newOrder.id });
+  logActivity('order', `New order ${newOrder.id} from ${name} — ₦${newOrder.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, { orderId: newOrder.id });
 
   // Fire off the email notification without delaying the customer's response.
   sendOrderNotificationEmail(newOrder);
@@ -407,14 +435,7 @@ function seedIfEmpty() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
   if (!fs.existsSync(PRODUCTS_FILE)) {
-    writeJSON(PRODUCTS_FILE, [
-      { id: 1, name: "Royal Gold Velvet Loafers", category: "shoes", price: 450, oldPrice: 520, badge: "Best Seller", rating: "5.0", stock: "In Stock", image: "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=600&q=80", desc: "Hand-finished gold embroidered loafers featuring plush interior cushioning." },
-      { id: 2, name: "Empress Calfskin Handbag", category: "bags", price: 890, oldPrice: 990, badge: "Limited", rating: "4.9", stock: "In Stock", image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80", desc: "Italian calfskin tote handbag featuring custom solid gold alloy hardware." },
-      { id: 3, name: "Monarch Leather Oxford Shoes", category: "shoes", price: 380, oldPrice: null, badge: "New", rating: "4.8", stock: "Low Stock", image: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=600&q=80", desc: "Classically styled Goodyear-welted leather Oxford dress shoes." },
-      { id: 4, name: "Couture Leather Travel Duffle", category: "bags", price: 650, oldPrice: 750, badge: "Sale", rating: "5.0", stock: "In Stock", image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80", desc: "Spacious weekender travel bag crafted from full-grain vegetable-tanned leather." },
-      { id: 5, name: "Imperial Stiletto Heels", category: "shoes", price: 520, oldPrice: 600, badge: "Exclusive", rating: "4.9", stock: "In Stock", image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=600&q=80", desc: "Sleek stiletto pumps with brushed gold metallic heels and soft lining." },
-      { id: 6, name: "Sovereign Crossbody Clutch", category: "bags", price: 310, oldPrice: null, badge: "New", rating: "4.7", stock: "In Stock", image: "https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?auto=format&fit=crop&w=600&q=80", desc: "Versatile evening clutch with detachable chain strap and magnetic gold clasp." }
-    ]);
+    writeJSON(PRODUCTS_FILE, []);
   }
   if (!fs.existsSync(ORDERS_FILE)) writeJSON(ORDERS_FILE, []);
   if (!fs.existsSync(CUSTOMERS_FILE)) writeJSON(CUSTOMERS_FILE, []);

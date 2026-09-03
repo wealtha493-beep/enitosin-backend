@@ -161,6 +161,43 @@
     .modal-overlay.active { display: flex; }
     .modal-content { background: var(--bg-card); border: 1px solid var(--border-gold); width: 90%; max-width: 600px; padding: 2rem; border-radius: 4px; }
 
+    .logs-brand-header {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      padding: 0.9rem 1rem;
+      margin-bottom: 1.2rem;
+      background: linear-gradient(90deg, rgba(212,175,55,0.10), rgba(212,175,55,0.02));
+      border: 1px solid var(--border-gold);
+      border-radius: 4px;
+    }
+    .logs-brand-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--gold-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #000;
+      font-family: var(--font-serif);
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+    .logs-brand-name {
+      color: var(--gold-primary);
+      font-family: var(--font-serif);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+    .logs-brand-subtitle {
+      color: var(--text-muted);
+      font-size: 0.62rem;
+      letter-spacing: 1.2px;
+      margin-top: 0.1rem;
+    }
+
     /* ACTIVITY LOG */
     .log-entry {
       display: flex;
@@ -266,7 +303,7 @@
     <div class="metrics-grid">
       <div class="metric-card">
         <p class="metric-title">Total Revenue</p>
-        <p class="metric-value" id="totalRevenue">$0.00</p>
+        <p class="metric-value" id="totalRevenue">₦0.00</p>
         <p class="metric-change">Live from order log</p>
       </div>
       <div class="metric-card">
@@ -337,6 +374,13 @@
 
     <!-- ACTIVITY LOG SECTION -->
     <div class="dashboard-section">
+      <div class="logs-brand-header">
+        <div class="logs-brand-mark">E</div>
+        <div>
+          <div class="logs-brand-name">ENITOSIN STORE</div>
+          <div class="logs-brand-subtitle">ADMIN ACTIVITY & AUDIT LOG</div>
+        </div>
+      </div>
       <div class="section-header">
         <h3>Activity Log</h3>
         <button class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="loadLogs()">Refresh</button>
@@ -377,16 +421,17 @@
   </div>
   <!-- /.admin-body -->
 
-  <!-- ADD PRODUCT MODAL -->
+  <!-- PRODUCT MODAL: used for both adding and editing products -->
   <div class="modal-overlay" id="addProductModal">
     <div class="modal-content">
-      <h3 style="font-family: var(--font-serif); color: var(--gold-light); margin-bottom: 1rem;">Add Product To Inventory</h3>
-      <form onsubmit="handleCreateProduct(event)">
-        <div style="margin-bottom: 0.8rem;">
+      <h3 id="productModalTitle" style="font-family: var(--font-serif); color: var(--gold-light); margin-bottom: 1rem;">Add Product To Inventory</h3>
+      <form onsubmit="handleProductSubmit(event)">
+        <input type="hidden" id="editingProductId">
+        <div style="margin-bottom:0.8rem;">
           <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Product Name</label>
           <input type="text" id="prodName" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
         </div>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.8rem;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:0.8rem;">
           <div>
             <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Category</label>
             <select id="prodCategory" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
@@ -395,17 +440,35 @@
             </select>
           </div>
           <div>
-            <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Price ($)</label>
-            <input type="number" id="prodPrice" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+            <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Price (₦)</label>
+            <input type="number" id="prodPrice" min="0" step="0.01" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
           </div>
         </div>
-        <div style="margin-bottom: 1.5rem;">
-          <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Product Image File</label>
-          <input type="file" id="prodImageFile" accept="image/*" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:0.8rem;">
+          <div>
+            <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Old Price (₦) — optional</label>
+            <input type="number" id="prodOldPrice" min="0" step="0.01" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+          </div>
+          <div>
+            <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Stock Status</label>
+            <select id="prodStock" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+              <option value="In Stock">In Stock</option>
+              <option value="Low Stock">Low Stock</option>
+              <option value="Out of Stock">Out of Stock</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:0.8rem;">
+          <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Product Image <span id="imageHelp">(required)</span></label>
+          <input type="file" id="prodImageFile" accept="image/*" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+        </div>
+        <div style="margin-bottom:0.8rem;">
+          <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Description</label>
+          <textarea id="prodDesc" rows="3" style="width:100%; padding:0.5rem; resize:vertical; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;"></textarea>
         </div>
         <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
           <button type="button" class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="closeAddProductModal()">Cancel</button>
-          <button type="submit" class="gold-btn">Save Product</button>
+          <button type="submit" class="gold-btn" id="productSubmitButton">Save Product</button>
         </div>
       </form>
     </div>
@@ -465,64 +528,121 @@
     function renderAdminTable() {
       const tbody = document.getElementById('adminProductTable');
       tbody.innerHTML = '';
-      adminProducts.forEach(p => {
-        const stockClass = p.stock === 'In Stock' ? 'in-stock' : 'low-stock';
-        tbody.innerHTML += `
+
+      if (!adminProducts.length) {
+        tbody.innerHTML = `
           <tr>
-            <td>#EN-${escapeHTML(p.id)}</td>
-            <td><img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" class="table-img"></td>
-            <td style="font-weight:600;">${escapeHTML(p.name)}</td>
-            <td style="text-transform:capitalize;">${escapeHTML(p.category)}</td>
-            <td>$${Number(p.price).toFixed(2)}</td>
-            <td><span class="status-badge ${escapeHTML(stockClass)}">${escapeHTML(p.stock)}</span></td>
-            <td>
-              <button onclick="deleteProduct(${p.id})" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Delete</button>
+            <td colspan="7" style="text-align:center; padding:2.5rem 1rem; color:var(--text-muted);">
+              <div style="font-size:1.8rem; margin-bottom:0.5rem;">🛍️</div>
+              <strong style="color:var(--gold-light);">Your catalog is empty</strong>
+              <div style="margin-top:0.35rem;">Add your first Enitosin product using the button above.</div>
             </td>
-          </tr>
-        `;
-      });
+          </tr>`;
+      } else {
+        adminProducts.forEach(p => {
+          const stockClass = p.stock === 'In Stock' ? 'in-stock' : 'low-stock';
+          tbody.innerHTML += `
+            <tr>
+              <td>#EN-${escapeHTML(p.id)}</td>
+              <td><img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" class="table-img"></td>
+              <td style="font-weight:600;">${escapeHTML(p.name)}</td>
+              <td style="text-transform:capitalize;">${escapeHTML(p.category)}</td>
+              <td>₦${Number(p.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td><span class="status-badge ${escapeHTML(stockClass)}">${escapeHTML(p.stock)}</span></td>
+              <td style="white-space:nowrap;">
+                <button onclick="openEditProductModal(${p.id})" style="background:none; border:none; color:var(--gold-primary); cursor:pointer; font-size:0.8rem; margin-right:0.7rem;">Edit</button>
+                <button onclick="deleteProduct(${p.id})" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Delete</button>
+              </td>
+            </tr>
+          `;
+        });
+      }
       document.getElementById('activeProductsCount').innerText = adminProducts.length;
     }
 
-    function openAddProductModal() { document.getElementById('addProductModal').classList.add('active'); }
-    function closeAddProductModal() { document.getElementById('addProductModal').classList.remove('active'); }
+    let editingProductId = null;
 
-    function handleCreateProduct(e) {
+    function openAddProductModal() {
+      editingProductId = null;
+      document.getElementById('productModalTitle').innerText = 'Add Product To Inventory';
+      document.getElementById('productSubmitButton').innerText = 'Save Product';
+      document.getElementById('imageHelp').innerText = '(required)';
+      document.getElementById('editingProductId').value = '';
+      document.querySelector('#addProductModal form').reset();
+      document.getElementById('addProductModal').classList.add('active');
+    }
+
+    function openEditProductModal(id) {
+      const product = adminProducts.find(p => String(p.id) === String(id));
+      if (!product) return;
+
+      editingProductId = product.id;
+      document.getElementById('productModalTitle').innerText = 'Edit Product';
+      document.getElementById('productSubmitButton').innerText = 'Save Changes';
+      document.getElementById('imageHelp').innerText = '(leave empty to keep current image)';
+      document.getElementById('editingProductId').value = product.id;
+      document.getElementById('prodName').value = product.name || '';
+      document.getElementById('prodCategory').value = product.category || 'shoes';
+      document.getElementById('prodPrice').value = product.price ?? '';
+      document.getElementById('prodOldPrice').value = product.oldPrice ?? '';
+      document.getElementById('prodStock').value = product.stock || 'In Stock';
+      document.getElementById('prodDesc').value = product.desc || '';
+      document.getElementById('prodImageFile').value = '';
+      document.getElementById('addProductModal').classList.add('active');
+    }
+
+    function closeAddProductModal() {
+      document.getElementById('addProductModal').classList.remove('active');
+    }
+
+    async function handleProductSubmit(e) {
       e.preventDefault();
 
       const fileInput = document.getElementById('prodImageFile');
       const file = fileInput.files[0];
-      if (!file) return;
+      const id = editingProductId;
 
-      const reader = new FileReader();
-      reader.onload = async function (event) {
-        const imageDataUrl = event.target.result;
-
-        const payload = {
-          name: document.getElementById('prodName').value,
-          category: document.getElementById('prodCategory').value,
-          price: parseFloat(document.getElementById('prodPrice').value),
-          stock: 'In Stock',
-          image: imageDataUrl,
-        };
-
-        try {
-          const res = await fetch(`${API_BASE}/products`, {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify(payload),
-          });
-          if (!res.ok) throw new Error((await res.json()).error || 'Failed to add product');
-
-          await loadProducts();
-          await loadStats();
-          closeAddProductModal();
-          e.target.reset();
-        } catch (err) {
-          alert(err.message);
-        }
+      const payload = {
+        name: document.getElementById('prodName').value.trim(),
+        category: document.getElementById('prodCategory').value,
+        price: parseFloat(document.getElementById('prodPrice').value),
+        oldPrice: document.getElementById('prodOldPrice').value === '' ? null : parseFloat(document.getElementById('prodOldPrice').value),
+        stock: document.getElementById('prodStock').value,
+        desc: document.getElementById('prodDesc').value.trim()
       };
-      reader.readAsDataURL(file);
+
+      const sendRequest = async (imageDataUrl) => {
+        if (imageDataUrl) payload.image = imageDataUrl;
+        else if (!id) throw new Error('Please choose a product image.');
+
+        const url = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: authHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || (id ? 'Failed to update product.' : 'Failed to add product.'));
+
+        await loadProducts();
+        await loadStats();
+        closeAddProductModal();
+        e.target.reset();
+        editingProductId = null;
+      };
+
+      try {
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = () => sendRequest(reader.result).catch(err => alert(err.message));
+          reader.readAsDataURL(file);
+        } else {
+          await sendRequest(null);
+        }
+      } catch (err) {
+        alert(err.message);
+      }
     }
 
     async function deleteProduct(id) {
@@ -556,7 +676,7 @@
             <td>#${escapeHTML(o.id)}</td>
             <td>${escapeHTML(o.customer.name)}<br><span style="color:var(--text-muted); font-size:0.75rem;">${escapeHTML(o.customer.email)}</span></td>
             <td>${escapeHTML(itemsSummary)}</td>
-            <td>$${Number(o.total).toFixed(2)}</td>
+            <td>₦${Number(o.total).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td><span class="status-badge ${escapeHTML(statusClass)}">${escapeHTML(o.status)}</span></td>
           </tr>
         `;
@@ -569,7 +689,7 @@
       if (!res.ok) return;
       const stats = await res.json();
 
-      document.getElementById('totalRevenue').innerText = `$${stats.totalRevenue.toFixed(2)}`;
+      document.getElementById('totalRevenue').innerText = `₦${stats.totalRevenue.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       document.getElementById('ordersCount').innerText = stats.ordersCount;
       document.getElementById('activeProductsCount').innerText = stats.activeProducts;
       document.getElementById('registeredClients').innerText = stats.registeredClients;

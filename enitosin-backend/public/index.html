@@ -420,9 +420,9 @@
           </select>
           <select id="priceFilter" class="filter-select" onchange="filterProducts()">
             <option value="all">Price Range</option>
-            <option value="under200">Under $200</option>
-            <option value="200to500">$200 - $500</option>
-            <option value="over500">Over $500</option>
+            <option value="under200">Under ₦50,000</option>
+            <option value="200to500">₦50,000 - ₦100,000</option>
+            <option value="over500">Over ₦100,000</option>
           </select>
         </div>
         <div>
@@ -529,7 +529,7 @@
     <div class="cart-footer">
       <div style="display:flex; justify-content:space-between; margin-bottom: 1rem;">
         <span>Subtotal:</span>
-        <span id="cartSubtotal" style="font-weight:bold; color:var(--gold-primary);">$0.00</span>
+        <span id="cartSubtotal" style="font-weight:bold; color:var(--gold-primary);">₦0.00</span>
       </div>
       <button class="gold-btn" style="width:100%; text-align:center;" onclick="openCheckout()">Proceed To Checkout</button>
     </div>
@@ -556,7 +556,7 @@
           <input type="text" id="checkoutAddress" required style="width:100%; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
         </div>
         <div style="border-top:1px solid var(--border-gold); padding-top:1rem; margin-top:1rem; text-align:right;">
-          <p style="margin-bottom:1rem; color:var(--text-muted);">Total Due: <span id="checkoutTotal" style="color:var(--gold-primary); font-weight:bold;">$0.00</span></p>
+          <p style="margin-bottom:1rem; color:var(--text-muted);">Total Due: <span id="checkoutTotal" style="color:var(--gold-primary); font-weight:bold;">₦0.00</span></p>
           <button type="submit" class="gold-btn">Place Order (Demo)</button>
         </div>
       </form>
@@ -628,8 +628,8 @@
               <span class="product-cat">${p.category}</span>
               <h3 class="product-title">${p.name}</h3>
               <div class="product-price">
-                $${p.price.toFixed(2)}
-                ${p.oldPrice ? `<span class="old-price">$${p.oldPrice.toFixed(2)}</span>` : ''}
+                ₦${p.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${p.oldPrice ? `<span class="old-price">₦${p.oldPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>` : ''}
               </div>
             </div>
           </div>
@@ -698,7 +698,7 @@
             <img src="${item.image}" alt="${item.name}">
             <div style="flex:1;">
               <h4 style="font-size:0.9rem;">${escapeHTML(item.name)}</h4>
-              <p style="color:var(--gold-primary); font-size:0.85rem;">$${Number(item.price).toFixed(2)}</p>
+              <p style="color:var(--gold-primary); font-size:0.85rem;">₦${Number(item.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.3rem;">
                 <button onclick="updateQty(${item.id}, -1)" style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; width:20px; height:20px;">-</button>
                 <span style="font-size:0.85rem;">${item.qty}</span>
@@ -709,8 +709,8 @@
         `;
       });
 
-      document.getElementById('cartSubtotal').innerText = `$${total.toFixed(2)}`;
-      document.getElementById('checkoutTotal').innerText = `$${total.toFixed(2)}`;
+      document.getElementById('cartSubtotal').innerText = `₦${total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      document.getElementById('checkoutTotal').innerText = `₦${total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
 
     function toggleSearch() {
@@ -742,7 +742,7 @@
           <div>
             <span class="product-cat">${p.category}</span>
             <h2 class="gold-text" style="margin:0.5rem 0;">${p.name}</h2>
-            <p style="font-size:1.3rem; font-weight:bold; margin-bottom:1rem;">$${p.price.toFixed(2)}</p>
+            <p style="font-size:1.3rem; font-weight:bold; margin-bottom:1rem;">₦${p.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             <p style="color:var(--text-muted); margin-bottom:1.5rem;">${p.desc}</p>
             <button class="gold-btn" onclick="addToCart(${p.id}); closeQuickView();">Add To Shopping Bag</button>
           </div>
