@@ -421,8 +421,8 @@
           <select id="priceFilter" class="filter-select" onchange="filterProducts()">
             <option value="all">Price Range</option>
             <option value="under200">Under ₦50,000</option>
-            <option value="200to500">₦50,000 - ₦100,000</option>
-            <option value="over500">Over ₦100,000</option>
+            <option value="200to500">₦50,000 - ₦150,000</option>
+            <option value="over500">Over ₦150,000</option>
           </select>
         </div>
         <div>
@@ -628,8 +628,8 @@
               <span class="product-cat">${p.category}</span>
               <h3 class="product-title">${p.name}</h3>
               <div class="product-price">
-                ₦${p.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                ${p.oldPrice ? `<span class="old-price">₦${p.oldPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>` : ''}
+                ₦${Number(p.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${p.oldPrice ? `<span class="old-price">₦${Number(p.oldPrice).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>` : ''}
               </div>
             </div>
           </div>
@@ -646,9 +646,9 @@
         const matchesCat = cat === 'all' || p.category === cat;
         const matchesSearch = p.name.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query);
         let matchesPrice = true;
-        if (price === 'under200') matchesPrice = p.price < 200;
-        else if (price === '200to500') matchesPrice = p.price >= 200 && p.price <= 500;
-        else if (price === 'over500') matchesPrice = p.price > 500;
+        if (price === 'under200') matchesPrice = p.price < 50000;
+        else if (price === '200to500') matchesPrice = p.price >= 50000 && p.price <= 150000;
+        else if (price === 'over500') matchesPrice = p.price > 150000;
 
         return matchesCat && matchesSearch && matchesPrice;
       });
@@ -742,7 +742,7 @@
           <div>
             <span class="product-cat">${p.category}</span>
             <h2 class="gold-text" style="margin:0.5rem 0;">${p.name}</h2>
-            <p style="font-size:1.3rem; font-weight:bold; margin-bottom:1rem;">₦${p.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p style="font-size:1.3rem; font-weight:bold; margin-bottom:1rem;">₦${Number(p.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             <p style="color:var(--text-muted); margin-bottom:1.5rem;">${p.desc}</p>
             <button class="gold-btn" onclick="addToCart(${p.id}); closeQuickView();">Add To Shopping Bag</button>
           </div>

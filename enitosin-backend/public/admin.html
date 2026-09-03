@@ -161,43 +161,6 @@
     .modal-overlay.active { display: flex; }
     .modal-content { background: var(--bg-card); border: 1px solid var(--border-gold); width: 90%; max-width: 600px; padding: 2rem; border-radius: 4px; }
 
-    .logs-brand-header {
-      display: flex;
-      align-items: center;
-      gap: 0.9rem;
-      padding: 0.9rem 1rem;
-      margin-bottom: 1.2rem;
-      background: linear-gradient(90deg, rgba(212,175,55,0.10), rgba(212,175,55,0.02));
-      border: 1px solid var(--border-gold);
-      border-radius: 4px;
-    }
-    .logs-brand-mark {
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: var(--gold-gradient);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #000;
-      font-family: var(--font-serif);
-      font-weight: 700;
-      font-size: 1.15rem;
-    }
-    .logs-brand-name {
-      color: var(--gold-primary);
-      font-family: var(--font-serif);
-      font-size: 1.25rem;
-      font-weight: 700;
-      letter-spacing: 2px;
-    }
-    .logs-brand-subtitle {
-      color: var(--text-muted);
-      font-size: 0.62rem;
-      letter-spacing: 1.2px;
-      margin-top: 0.1rem;
-    }
-
     /* ACTIVITY LOG */
     .log-entry {
       display: flex;
@@ -207,6 +170,14 @@
       border-bottom: 1px solid rgba(255,255,255,0.05);
     }
     .log-entry:last-child { border-bottom: none; }
+    .catalog-empty {
+      text-align:center; padding:2.5rem 1rem; color:var(--text-muted);
+    }
+    .catalog-empty strong { display:block; color:var(--gold-light); font-size:1rem; margin-bottom:0.4rem; }
+    .edit-btn { background:transparent; border:1px solid var(--border-gold); color:var(--gold-light); padding:0.35rem 0.6rem; border-radius:2px; cursor:pointer; font-size:0.75rem; margin-right:0.35rem; }
+    .edit-btn:hover { background:rgba(212,175,55,0.12); }
+    .modal-scroll { max-height:80vh; overflow-y:auto; }
+
     .log-type {
       display: inline-block;
       font-size: 0.65rem;
@@ -374,12 +345,12 @@
 
     <!-- ACTIVITY LOG SECTION -->
     <div class="dashboard-section">
-      <div class="logs-brand-header">
-        <div class="logs-brand-mark">E</div>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.2rem; margin-bottom:1rem; border:1px solid var(--border-gold); background:linear-gradient(135deg, rgba(212,175,55,0.10), rgba(0,0,0,0.15));">
         <div>
-          <div class="logs-brand-name">ENITOSIN STORE</div>
-          <div class="logs-brand-subtitle">ADMIN ACTIVITY & AUDIT LOG</div>
+          <div style="font-family:var(--font-serif); color:var(--gold-light); font-size:1.15rem; letter-spacing:1px;">ENITOSIN STORE</div>
+          <div style="color:var(--text-muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:1.5px;">Admin Activity &amp; Audit Log</div>
         </div>
+        <div style="font-size:0.7rem; color:var(--gold-primary);">LIVE RECORDS</div>
       </div>
       <div class="section-header">
         <h3>Activity Log</h3>
@@ -421,17 +392,16 @@
   </div>
   <!-- /.admin-body -->
 
-  <!-- PRODUCT MODAL: used for both adding and editing products -->
+  <!-- ADD PRODUCT MODAL -->
   <div class="modal-overlay" id="addProductModal">
     <div class="modal-content">
-      <h3 id="productModalTitle" style="font-family: var(--font-serif); color: var(--gold-light); margin-bottom: 1rem;">Add Product To Inventory</h3>
-      <form onsubmit="handleProductSubmit(event)">
-        <input type="hidden" id="editingProductId">
-        <div style="margin-bottom:0.8rem;">
+      <h3 style="font-family: var(--font-serif); color: var(--gold-light); margin-bottom: 1rem;">Add Product To Inventory</h3>
+      <form onsubmit="handleCreateProduct(event)">
+        <div style="margin-bottom: 0.8rem;">
           <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Product Name</label>
           <input type="text" id="prodName" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:0.8rem;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.8rem;">
           <div>
             <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Category</label>
             <select id="prodCategory" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
@@ -441,35 +411,43 @@
           </div>
           <div>
             <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Price (₦)</label>
-            <input type="number" id="prodPrice" min="0" step="0.01" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+            <input type="number" id="prodPrice" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
           </div>
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:0.8rem;">
-          <div>
-            <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Old Price (₦) — optional</label>
-            <input type="number" id="prodOldPrice" min="0" step="0.01" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
-          </div>
-          <div>
-            <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Stock Status</label>
-            <select id="prodStock" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
-              <option value="In Stock">In Stock</option>
-              <option value="Low Stock">Low Stock</option>
-              <option value="Out of Stock">Out of Stock</option>
-            </select>
-          </div>
-        </div>
-        <div style="margin-bottom:0.8rem;">
-          <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Product Image <span id="imageHelp">(required)</span></label>
-          <input type="file" id="prodImageFile" accept="image/*" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
-        </div>
-        <div style="margin-bottom:0.8rem;">
-          <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Description</label>
-          <textarea id="prodDesc" rows="3" style="width:100%; padding:0.5rem; resize:vertical; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;"></textarea>
+        <div style="margin-bottom: 1.5rem;">
+          <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Product Image File</label>
+          <input type="file" id="prodImageFile" accept="image/*" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
         </div>
         <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
           <button type="button" class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="closeAddProductModal()">Cancel</button>
-          <button type="submit" class="gold-btn" id="productSubmitButton">Save Product</button>
+          <button type="submit" class="gold-btn">Save Product</button>
         </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EDIT PRODUCT MODAL -->
+  <div class="modal-overlay" id="editProductModal">
+    <div class="modal-content modal-scroll">
+      <h3 style="font-family: var(--font-serif); color: var(--gold-light); margin-bottom: 1rem;">Edit Product</h3>
+      <form onsubmit="handleEditProduct(event)">
+        <input type="hidden" id="editProdId">
+        <div style="margin-bottom:0.8rem;">
+          <label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Product Name</label>
+          <input type="text" id="editProdName" required style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.8rem;">
+          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Category</label><select id="editProdCategory" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><option value="shoes">Shoes</option><option value="bags">Bags</option></select></div>
+          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Price (₦)</label><input type="number" id="editProdPrice" min="0" step="0.01" required style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.8rem;">
+          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Old Price (₦)</label><input type="number" id="editProdOldPrice" min="0" step="0.01" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"></div>
+          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Stock Status</label><select id="editProdStock" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></select></div>
+        </div>
+        <div style="margin-bottom:0.8rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Badge</label><input type="text" id="editProdBadge" placeholder="e.g. New, Sale, Best Seller" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"></div>
+        <div style="margin-bottom:0.8rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Description</label><textarea id="editProdDesc" rows="4" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;resize:vertical;"></textarea></div>
+        <div style="margin-bottom:1.5rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Replace Product Image (optional)</label><input type="file" id="editProdImageFile" accept="image/*" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.35rem;">Leave this empty to keep the current image.</p></div>
+        <div style="display:flex;justify-content:flex-end;gap:0.5rem;"><button type="button" class="gold-btn" style="background:transparent;color:#fff;border:1px solid var(--border-gold);" onclick="closeEditProductModal()">Cancel</button><button type="submit" class="gold-btn">Save Changes</button></div>
       </form>
     </div>
   </div>
@@ -528,16 +506,8 @@
     function renderAdminTable() {
       const tbody = document.getElementById('adminProductTable');
       tbody.innerHTML = '';
-
       if (!adminProducts.length) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" style="text-align:center; padding:2.5rem 1rem; color:var(--text-muted);">
-              <div style="font-size:1.8rem; margin-bottom:0.5rem;">🛍️</div>
-              <strong style="color:var(--gold-light);">Your catalog is empty</strong>
-              <div style="margin-top:0.35rem;">Add your first Enitosin product using the button above.</div>
-            </td>
-          </tr>`;
+        tbody.innerHTML = `<tr><td colspan="7"><div class="catalog-empty"><strong>Your catalog is empty</strong><span>Add your first Enitosin product to make it appear on the storefront.</span></div></td></tr>`;
       } else {
         adminProducts.forEach(p => {
           const stockClass = p.stock === 'In Stock' ? 'in-stock' : 'low-stock';
@@ -549,8 +519,8 @@
               <td style="text-transform:capitalize;">${escapeHTML(p.category)}</td>
               <td>₦${Number(p.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td><span class="status-badge ${escapeHTML(stockClass)}">${escapeHTML(p.stock)}</span></td>
-              <td style="white-space:nowrap;">
-                <button onclick="openEditProductModal(${p.id})" style="background:none; border:none; color:var(--gold-primary); cursor:pointer; font-size:0.8rem; margin-right:0.7rem;">Edit</button>
+              <td>
+                <button class="edit-btn" onclick="openEditProductModal(${p.id})">Edit</button>
                 <button onclick="deleteProduct(${p.id})" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Delete</button>
               </td>
             </tr>
@@ -560,89 +530,100 @@
       document.getElementById('activeProductsCount').innerText = adminProducts.length;
     }
 
-    let editingProductId = null;
-
-    function openAddProductModal() {
-      editingProductId = null;
-      document.getElementById('productModalTitle').innerText = 'Add Product To Inventory';
-      document.getElementById('productSubmitButton').innerText = 'Save Product';
-      document.getElementById('imageHelp').innerText = '(required)';
-      document.getElementById('editingProductId').value = '';
-      document.querySelector('#addProductModal form').reset();
-      document.getElementById('addProductModal').classList.add('active');
-    }
+    function openAddProductModal() { document.getElementById('addProductModal').classList.add('active'); }
+    function closeAddProductModal() { document.getElementById('addProductModal').classList.remove('active'); }
 
     function openEditProductModal(id) {
-      const product = adminProducts.find(p => String(p.id) === String(id));
-      if (!product) return;
-
-      editingProductId = product.id;
-      document.getElementById('productModalTitle').innerText = 'Edit Product';
-      document.getElementById('productSubmitButton').innerText = 'Save Changes';
-      document.getElementById('imageHelp').innerText = '(leave empty to keep current image)';
-      document.getElementById('editingProductId').value = product.id;
-      document.getElementById('prodName').value = product.name || '';
-      document.getElementById('prodCategory').value = product.category || 'shoes';
-      document.getElementById('prodPrice').value = product.price ?? '';
-      document.getElementById('prodOldPrice').value = product.oldPrice ?? '';
-      document.getElementById('prodStock').value = product.stock || 'In Stock';
-      document.getElementById('prodDesc').value = product.desc || '';
-      document.getElementById('prodImageFile').value = '';
-      document.getElementById('addProductModal').classList.add('active');
+      const p = adminProducts.find(item => String(item.id) === String(id));
+      if (!p) return;
+      document.getElementById('editProdId').value = p.id;
+      document.getElementById('editProdName').value = p.name || '';
+      document.getElementById('editProdCategory').value = p.category || 'shoes';
+      document.getElementById('editProdPrice').value = Number(p.price || 0);
+      document.getElementById('editProdOldPrice').value = p.oldPrice ?? '';
+      document.getElementById('editProdStock').value = p.stock || 'In Stock';
+      document.getElementById('editProdBadge').value = p.badge || '';
+      document.getElementById('editProdDesc').value = p.desc || '';
+      document.getElementById('editProdImageFile').value = '';
+      document.getElementById('editProductModal').classList.add('active');
     }
 
-    function closeAddProductModal() {
-      document.getElementById('addProductModal').classList.remove('active');
-    }
+    function closeEditProductModal() { document.getElementById('editProductModal').classList.remove('active'); }
 
-    async function handleProductSubmit(e) {
+    async function handleEditProduct(e) {
       e.preventDefault();
-
-      const fileInput = document.getElementById('prodImageFile');
-      const file = fileInput.files[0];
-      const id = editingProductId;
-
+      const id = document.getElementById('editProdId').value;
       const payload = {
-        name: document.getElementById('prodName').value.trim(),
-        category: document.getElementById('prodCategory').value,
-        price: parseFloat(document.getElementById('prodPrice').value),
-        oldPrice: document.getElementById('prodOldPrice').value === '' ? null : parseFloat(document.getElementById('prodOldPrice').value),
-        stock: document.getElementById('prodStock').value,
-        desc: document.getElementById('prodDesc').value.trim()
+        name: document.getElementById('editProdName').value.trim(),
+        category: document.getElementById('editProdCategory').value,
+        price: Number(document.getElementById('editProdPrice').value),
+        oldPrice: document.getElementById('editProdOldPrice').value === '' ? null : Number(document.getElementById('editProdOldPrice').value),
+        stock: document.getElementById('editProdStock').value,
+        badge: document.getElementById('editProdBadge').value.trim(),
+        desc: document.getElementById('editProdDesc').value.trim(),
       };
 
-      const sendRequest = async (imageDataUrl) => {
-        if (imageDataUrl) payload.image = imageDataUrl;
-        else if (!id) throw new Error('Please choose a product image.');
-
-        const url = id ? `${API_BASE}/products/${id}` : `${API_BASE}/products`;
-        const method = id ? 'PUT' : 'POST';
-        const res = await fetch(url, {
-          method,
-          headers: authHeaders(),
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || (id ? 'Failed to update product.' : 'Failed to add product.'));
-
+      const file = document.getElementById('editProdImageFile').files[0];
+      const save = async (image) => {
+        if (image) payload.image = image;
+        const res = await fetch(`${API_BASE}/products/${id}`, { method:'PUT', headers:authHeaders(), body:JSON.stringify(payload) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Failed to update product.');
         await loadProducts();
         await loadStats();
-        closeAddProductModal();
-        e.target.reset();
-        editingProductId = null;
+        await loadLogs();
+        closeEditProductModal();
       };
 
       try {
         if (file) {
           const reader = new FileReader();
-          reader.onload = () => sendRequest(reader.result).catch(err => alert(err.message));
+          reader.onload = () => save(reader.result).catch(err => alert(err.message));
           reader.readAsDataURL(file);
         } else {
-          await sendRequest(null);
+          await save();
         }
       } catch (err) {
         alert(err.message);
       }
+    }
+
+    function handleCreateProduct(e) {
+      e.preventDefault();
+
+      const fileInput = document.getElementById('prodImageFile');
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function (event) {
+        const imageDataUrl = event.target.result;
+
+        const payload = {
+          name: document.getElementById('prodName').value,
+          category: document.getElementById('prodCategory').value,
+          price: parseFloat(document.getElementById('prodPrice').value),
+          stock: 'In Stock',
+          image: imageDataUrl,
+        };
+
+        try {
+          const res = await fetch(`${API_BASE}/products`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error((await res.json()).error || 'Failed to add product');
+
+          await loadProducts();
+          await loadStats();
+          closeAddProductModal();
+          e.target.reset();
+        } catch (err) {
+          alert(err.message);
+        }
+      };
+      reader.readAsDataURL(file);
     }
 
     async function deleteProduct(id) {
@@ -689,7 +670,7 @@
       if (!res.ok) return;
       const stats = await res.json();
 
-      document.getElementById('totalRevenue').innerText = `₦${stats.totalRevenue.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      document.getElementById('totalRevenue').innerText = `₦${Number(stats.totalRevenue).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       document.getElementById('ordersCount').innerText = stats.ordersCount;
       document.getElementById('activeProductsCount').innerText = stats.activeProducts;
       document.getElementById('registeredClients').innerText = stats.registeredClients;

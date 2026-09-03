@@ -8,6 +8,10 @@ services:
     envVars:
       - key: ADMIN_KEY
         sync: false   # set this yourself in the Render dashboard — don't commit a real key
+      - key: SUPABASE_URL
+        sync: false   # Supabase project URL
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false   # Supabase secret/service-role key — NEVER expose in frontend code
       - key: RESEND_API_KEY
         sync: false   # your Resend API key (starts with "re_")
       - key: RESEND_FROM_EMAIL
@@ -15,8 +19,6 @@ services:
       - key: NODE_VERSION
         value: 20.11.0
 
-# NOTE: Free-tier Render web services have an ephemeral filesystem — the
-# data/*.json files (products, orders, logs) are wiped on every restart or
-# redeploy. To keep data across deploys, upgrade to a paid instance type
-# and attach a persistent disk (see README.md for the exact steps), or
-# swap the JSON-file storage for Render Postgres.
+# NOTE: Products, orders, customers, settings, and activity logs are now
+# persisted in Supabase. Render only runs the Node/Express backend, so a
+# Render persistent disk is not required for the store database.
