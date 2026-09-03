@@ -184,6 +184,9 @@
     .log-type.product_add { background: rgba(212, 175, 55, 0.15); color: var(--gold-primary); border: 1px solid var(--gold-primary); }
     .log-type.product_delete { background: rgba(244, 67, 54, 0.15); color: #ef9a9a; border: 1px solid #f44336; }
     .log-type.product_update, .log-type.order_status { background: rgba(33, 150, 243, 0.15); color: #90caf9; border: 1px solid #2196f3; }
+    .log-type.email_sent { background: rgba(76, 175, 80, 0.15); color: #81c784; border: 1px solid #4caf50; }
+    .log-type.email_failed { background: rgba(244, 67, 54, 0.15); color: #ef9a9a; border: 1px solid #f44336; }
+    .log-type.settings_update { background: rgba(212, 175, 55, 0.15); color: var(--gold-primary); border: 1px solid var(--gold-primary); }
     .log-time { color: var(--text-muted); font-size: 0.75rem; white-space: nowrap; }
 
     /* ADMIN KEY GATE */
@@ -238,6 +241,7 @@
       <li><a href="#">Orders</a></li>
       <li><a href="#">Customers</a></li>
       <li><a href="#">Inventory</a></li>
+      <li><a href="#settingsSection" onclick="document.getElementById('settingsSection').scrollIntoView({behavior:'smooth'})">Settings</a></li>
       <li><a href="index.html">← View Store Front</a></li>
     </ul>
   </aside>
@@ -340,6 +344,33 @@
       <div id="activityLog" style="max-height: 360px; overflow-y: auto; font-size: 0.85rem;">
         <!-- Populated live from /api/logs -->
       </div>
+    </div>
+
+    <!-- SETTINGS SECTION: order-notification recipient (sent via Resend) -->
+    <div class="dashboard-section" id="settingsSection">
+      <div class="section-header">
+        <h3>Order Notification Settings</h3>
+      </div>
+      <p id="emailStatusLine" style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">
+        Checking email configuration…
+      </p>
+      <form onsubmit="handleSaveSettings(event)" style="max-width: 420px;">
+        <label style="display:block; font-size:0.75rem; margin-bottom:0.3rem; color:var(--text-muted);">
+          Email address to receive new-order alerts
+        </label>
+        <input type="email" id="notificationEmailInput" placeholder="you@gmail.com"
+               style="width:100%; padding:0.6rem; margin-bottom:0.8rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+        <div style="display:flex; align-items:center; gap:0.8rem;">
+          <button type="submit" class="gold-btn">Save</button>
+          <span id="settingsSavedMsg" style="font-size:0.75rem; color:#81c784;"></span>
+        </div>
+      </form>
+      <p style="color: var(--text-muted); font-size: 0.75rem; margin-top: 1rem;">
+        This is only the address that <em>receives</em> the alert. Emails are sent through
+        <a href="https://resend.com" target="_blank" rel="noopener" style="color:var(--gold-primary);">Resend</a>,
+        configured on the server via the <code>RESEND_API_KEY</code> / <code>RESEND_FROM_EMAIL</code>
+        environment variables — see README.
+      </p>
     </div>
   </main>
 
@@ -567,12 +598,54 @@
       });
     }
 
+    // ---------- settings (notification email) ----------
+    async function loadSettings() {
+      const res = await fetch(`${API_BASE}/settings`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const settings = await res.json();
+
+      document.getElementById('notificationEmailInput').value = settings.notificationEmail || '';
+
+      const statusEl = document.getElementById('emailStatusLine');
+      if (!settings.emailConfigured) {
+        statusEl.textContent = '⚠ Email sending is not configured on the server yet (missing RESEND_API_KEY).';
+        statusEl.style.color = '#ef9a9a';
+      } else {
+        statusEl.textContent = `✓ Sending as ${settings.fromEmail}. New orders will be emailed to the address below.`;
+        statusEl.style.color = '#81c784';
+      }
+    }
+
+    async function handleSaveSettings(event) {
+      event.preventDefault();
+      const notificationEmail = document.getElementById('notificationEmailInput').value.trim();
+      const msgEl = document.getElementById('settingsSavedMsg');
+
+      const res = await fetch(`${API_BASE}/settings`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ notificationEmail }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        msgEl.style.color = '#ef9a9a';
+        msgEl.textContent = data.error || 'Failed to save.';
+        return;
+      }
+      msgEl.style.color = '#81c784';
+      msgEl.textContent = 'Saved ✓';
+      setTimeout(() => { msgEl.textContent = ''; }, 2500);
+      loadLogs();
+    }
+
     // ---------- init ----------
     async function initDashboard() {
       await loadProducts();
       await loadStats();
       await loadOrders();
       await loadLogs();
+      await loadSettings();
     }
 
     // If we already have a saved admin key, skip the gate and validate silently

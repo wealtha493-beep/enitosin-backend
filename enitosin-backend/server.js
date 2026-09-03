@@ -19,6 +19,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { Resend } = require('resend');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,6 +34,93 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const CUSTOMERS_FILE = path.join(DATA_DIR, 'customers.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+
+// ---------- email (Resend) notifications ----------
+// The Resend API key and "from" address are read from environment
+// variables — never stored on disk or entered in the admin UI, since the
+// API key is a secret credential. What the admin CAN set from the
+// dashboard is the notification email address that should RECEIVE the
+// "new order" alerts (stored in settings.json).
+//
+// RESEND_FROM_EMAIL must be on a domain you've verified with Resend
+// (https://resend.com/domains). Until you verify one, Resend lets you
+// send test emails from "onboarding@resend.dev", so that's the default
+// here — swap it once you've verified your own domain.
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'ENITOSIN Store <onboarding@resend.dev>';
+
+let resendClient = null;
+if (RESEND_API_KEY) {
+  resendClient = new Resend(RESEND_API_KEY);
+} else {
+  console.warn('WARNING: RESEND_API_KEY not set — order email notifications are disabled.');
+}
+
+function readSettings() {
+  return readJSON(SETTINGS_FILE, { notificationEmail: '' });
+}
+
+async function sendOrderNotificationEmail(order) {
+  if (!resendClient) return; // email not configured — silently skip
+
+  const settings = readSettings();
+  const recipient = String(settings.notificationEmail || '').trim();
+  if (!recipient) return;
+
+  const itemsList = order.items
+    .map(item => `  • ${item.name}  x${item.qty}  —  $${(item.price * item.qty).toFixed(2)}`)
+    .join('\n');
+
+  const textBody = [
+    `New order received: ${order.id}`,
+    '',
+    `Customer: ${order.customer.name}`,
+    `Email:    ${order.customer.email}`,
+    `Address:  ${order.customer.address}`,
+    '',
+    'Items:',
+    itemsList,
+    '',
+    `Total: $${order.total.toFixed(2)}`,
+    `Status: ${order.status}`,
+    `Placed: ${new Date(order.createdAt).toLocaleString()}`,
+  ].join('\n');
+
+  const itemsHtml = order.items
+    .map(item => `<tr><td style="padding:4px 8px;">${item.name}</td><td style="padding:4px 8px;">x${item.qty}</td><td style="padding:4px 8px;">$${(item.price * item.qty).toFixed(2)}</td></tr>`)
+    .join('');
+
+  const htmlBody = `
+    <div style="font-family:sans-serif; color:#222;">
+      <h2 style="color:#aa7c11;">New Order — ${order.id}</h2>
+      <p><strong>Customer:</strong> ${order.customer.name}<br>
+         <strong>Email:</strong> ${order.customer.email}<br>
+         <strong>Address:</strong> ${order.customer.address}</p>
+      <table style="border-collapse:collapse; margin:12px 0;">
+        <thead><tr><th style="text-align:left; padding:4px 8px;">Item</th><th style="text-align:left; padding:4px 8px;">Qty</th><th style="text-align:left; padding:4px 8px;">Subtotal</th></tr></thead>
+        <tbody>${itemsHtml}</tbody>
+      </table>
+      <p><strong>Total: $${order.total.toFixed(2)}</strong><br>
+         Status: ${order.status}<br>
+         Placed: ${new Date(order.createdAt).toLocaleString()}</p>
+    </div>`;
+
+  try {
+    const { error } = await resendClient.emails.send({
+      from: RESEND_FROM_EMAIL,
+      to: recipient,
+      subject: `New Order ${order.id} — $${order.total.toFixed(2)}`,
+      text: textBody,
+      html: htmlBody,
+    });
+    if (error) throw new Error(error.message || 'Unknown Resend error');
+    logActivity('email_sent', `Order notification emailed to ${recipient} for ${order.id}`, { orderId: order.id });
+  } catch (err) {
+    console.error('Failed to send order notification email:', err.message);
+    logActivity('email_failed', `Failed to email order notification for ${order.id}: ${err.message}`, { orderId: order.id });
+  }
+}
 
 app.disable('x-powered-by');
 app.use((req, res, next) => {
@@ -224,6 +312,9 @@ app.post('/api/orders', (req, res) => {
 
   logActivity('order', `New order ${newOrder.id} from ${name} — $${newOrder.total.toFixed(2)}`, { orderId: newOrder.id });
 
+  // Fire off the email notification without delaying the customer's response.
+  sendOrderNotificationEmail(newOrder);
+
   res.status(201).json(newOrder);
 });
 
@@ -249,6 +340,38 @@ app.put('/api/orders/:id/status', requireAdmin, (req, res) => {
   logActivity('order_status', `Order ${orders[idx].id} marked ${status}`, { orderId: orders[idx].id });
 
   res.json(orders[idx]);
+});
+
+// =====================================================================
+// SETTINGS  (admin-configurable notification recipient)
+// =====================================================================
+
+// Admin only: read current settings (notification email + whether the
+// server has Gmail credentials configured at all)
+app.get('/api/settings', requireAdmin, (req, res) => {
+  const settings = readSettings();
+  res.json({
+    notificationEmail: settings.notificationEmail || '',
+    emailConfigured: Boolean(resendClient),
+    fromEmail: resendClient ? RESEND_FROM_EMAIL : null,
+  });
+});
+
+// Admin only: update the notification recipient email
+app.put('/api/settings', requireAdmin, (req, res) => {
+  const { notificationEmail } = req.body || {};
+  const clean = String(notificationEmail || '').trim();
+
+  if (clean && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+    return res.status(400).json({ error: 'Please provide a valid email address.' });
+  }
+
+  const settings = readSettings();
+  settings.notificationEmail = clean;
+  writeJSON(SETTINGS_FILE, settings);
+  logActivity('settings_update', clean ? `Order notifications set to ${clean}` : 'Order notification email cleared');
+
+  res.json({ notificationEmail: clean });
 });
 
 // =====================================================================
@@ -296,6 +419,7 @@ function seedIfEmpty() {
   if (!fs.existsSync(ORDERS_FILE)) writeJSON(ORDERS_FILE, []);
   if (!fs.existsSync(CUSTOMERS_FILE)) writeJSON(CUSTOMERS_FILE, []);
   if (!fs.existsSync(LOG_FILE)) writeJSON(LOG_FILE, []);
+  if (!fs.existsSync(SETTINGS_FILE)) writeJSON(SETTINGS_FILE, { notificationEmail: '' });
 }
 seedIfEmpty();
 
@@ -303,5 +427,6 @@ app.listen(PORT, () => {
   console.log(`\n  ENITOSIN backend running → http://localhost:${PORT}`);
   console.log(`  Storefront:       http://localhost:${PORT}/index.html`);
   console.log(`  Admin dashboard:  http://localhost:${PORT}/admin.html`);
-  console.log('  Admin key:        configured via environment variable\n');
+  console.log('  Admin key:        configured via environment variable');
+  console.log(`  Order emails:     ${resendClient ? `enabled (sending as ${RESEND_FROM_EMAIL})` : 'disabled (set RESEND_API_KEY)'}\n`);
 });

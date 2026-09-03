@@ -12,6 +12,9 @@ with their own hardcoded data:
 - **An activity log.** Every product added/edited/deleted and every order
   placed is recorded and shown in a new "Activity Log" panel on the admin
   dashboard — this is the "logs" feature you asked about.
+- **Order email notifications (via Resend).** When a customer checks out,
+  the server emails the full order (customer name/email/address, items,
+  total) to an address you set from the admin dashboard's **Settings** panel.
 
 ## How it's built
 
@@ -47,6 +50,60 @@ ADMIN_KEY=my-secret npm start
 The browser stores the entered key in `localStorage` so you won't be asked
 again on that browser.
 
+## Setting up order email notifications (Resend)
+
+There are two separate email settings, and they're configured in two
+different places on purpose (the API key is a secret; the recipient isn't):
+
+1. **The Resend API key + sending address** — set once on the server via
+   environment variables. Never entered in the admin UI or written to disk.
+2. **The recipient address** — the address that should receive the alerts.
+   Set from the admin dashboard's **Settings** panel, and can be changed
+   any time without touching the server config.
+
+### Step 1 — get a Resend API key
+
+1. Sign up at <https://resend.com> (free tier is enough for this).
+2. In the Resend dashboard, go to **API Keys** → **Create API Key**, and
+   copy the key (starts with `re_`) — you'll only see it once.
+3. Optional but recommended: go to **Domains** and verify a domain you
+   own, so you can send as `orders@yourdomain.com` instead of Resend's
+   shared test address. This isn't required to get started — see Step 2.
+
+### Step 2 — set environment variables on the server
+
+Locally:
+
+```
+ADMIN_KEY=my-secret RESEND_API_KEY=re_your_key_here npm start
+```
+
+`RESEND_FROM_EMAIL` is optional. If you skip it, emails send from
+Resend's shared test address (`onboarding@resend.dev`) — fine for trying
+things out, but **only deliverable to the email address you signed up to
+Resend with** until you verify your own domain. Once you've verified a
+domain, set it explicitly:
+
+```
+RESEND_FROM_EMAIL="ENITOSIN Store <orders@yourdomain.com>"
+```
+
+On Render: **your service → Environment**, add `RESEND_API_KEY` (and
+optionally `RESEND_FROM_EMAIL`), then redeploy. `render.yaml` already
+lists both as variables you fill in yourself.
+
+### Step 3 — set the recipient address in the admin dashboard
+
+Open the admin dashboard → **Settings** (bottom of the page, or the
+"Settings" link in the sidebar) → enter the address that should receive
+new-order alerts → **Save**. Any email address works here, not just Gmail
+or the address tied to your Resend account.
+
+If you skip Step 3, no notification email is sent (there's no default
+recipient). If you skip Steps 1–2, the Settings panel will show a warning
+that email sending isn't configured, and orders will still be placed
+normally — they just won't trigger an email until `RESEND_API_KEY` is set.
+
 ## Try the connection yourself
 
 1. Open the admin dashboard, enter the admin key, and add a new product
@@ -78,7 +135,9 @@ This is a standard Node/Express app, so it deploys to Render like any other:
    the application inside an `enitosin-backend/` subfolder. Set **Build Command**
    to `npm install` and **Start Command** to `npm start`.
 5. Under **Environment Variables**, add `ADMIN_KEY` and set it to a strong secret
-   of your choosing. Render automatically provides `PORT`, which `server.js` reads.
+   of your choosing, plus `RESEND_API_KEY` (and optionally `RESEND_FROM_EMAIL`) if
+   you want order email notifications (see "Setting up order email notifications"
+   above). Render automatically provides `PORT`, which `server.js` reads.
 6. Deploy. Render gives you a public URL — your storefront will be at
    `https://your-service.onrender.com/index.html` and the admin dashboard at
    `https://your-service.onrender.com/admin.html`.
@@ -118,6 +177,8 @@ To fix this for a real launch, do one of:
 | PUT    | `/api/orders/:id/status`  | admin key   | Update order status                   |
 | GET    | `/api/stats`              | admin key   | Dashboard metrics                     |
 | GET    | `/api/logs`               | admin key   | Activity log feed                     |
+| GET    | `/api/settings`           | admin key   | Read notification email + email status|
+| PUT    | `/api/settings`           | admin key   | Set the order-notification recipient  |
 
 Admin-only endpoints require an `x-admin-key` header matching `ADMIN_KEY`.
 
