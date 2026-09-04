@@ -42,23 +42,29 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 0.7rem;
       text-decoration: none;
-      color: inherit;
+      position: relative;
+      z-index: 10;
     }
 
-    .brand img {
-      width: 60px;
-      height: 60px;
-      object-fit: contain;
+    .logo-img {
+      height: 40px;
+      width: auto;
       display: block;
+      object-fit: contain;
     }
 
-    .brand span {
-      font-size: 1.2rem;
+    .logo-text {
+      font-family: var(--font-serif);
+      font-size: 1.8rem;
       font-weight: 700;
-      letter-spacing: 1px;
-    }
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      background: var(--gold-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+   }
 
     .container { width: 90%; max-width: 1300px; margin: 0 auto; }
     .gold-text { background: var(--gold-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -362,9 +368,11 @@
   <header>
     <div class="container nav-container">
       <a href="/" class="brand">
-        <img src="enitosin logo (2).jpeg" alt="Enitosin Store Logo">
-          <span>ENITOSIN STORE</span>
+        <img src="enitosin logo (2).jpeg" alt="Enitosin Store Logo" class="logo-img"
+          onerror="this.style.display='none'">
+        <span class="logo-text">ENITOSIN STORE</span>
       </a>
+    
      
       <ul class="nav-links">
         <li><a href="#home">Home</a></li>
