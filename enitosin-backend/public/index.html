@@ -605,9 +605,9 @@
     // of a hardcoded array, so anything the admin adds/removes in
     // admin.html shows up here automatically on refresh.
     // ------------------------------------------------------------------
-    const API_BASE = window.location.origin.includes('null') || window.location.protocol === 'file:'
-      ? 'http://localhost:3000/api'   // fallback if this file is opened directly (file://) instead of served by Express
-      : '/api';
+    const API_BASE = window.location.protocol === 'file:'
+      ? 'http://localhost:3000/api'
+      : `${window.location.origin}/api`;
 
     let products = [];             // populated by loadProducts()
     let cart = JSON.parse(localStorage.getItem('enitosin_cart')) || [];

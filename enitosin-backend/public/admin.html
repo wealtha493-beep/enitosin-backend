@@ -463,7 +463,7 @@
     // ------------------------------------------------------------------
     const API_BASE = window.location.protocol === 'file:'
       ? 'http://localhost:3000/api'
-      : '/api';
+      : `${window.location.origin}/api`;
 
     let adminKey = localStorage.getItem('enitosin_admin_key') || '';
     let adminProducts = [];

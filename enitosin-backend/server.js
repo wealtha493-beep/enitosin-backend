@@ -12,7 +12,7 @@ const crypto = require('crypto');
 const { Resend } = require('resend');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const ADMIN_KEY = process.env.ADMIN_KEY;
 const SUPABASE_URL = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -193,14 +193,22 @@ async function sendOrderNotificationEmail(order) {
   }
 }
 
-app.get('/health', async (req, res) => {
+async function healthHandler(req, res) {
   try {
     await dbList('products', { select: 'id', limit: '1' });
-    res.json({ status: 'ok', database: 'supabase' });
+    res.json({ status: 'ok', database: 'supabase', server: 'enitosin' });
   } catch (err) {
-    res.status(503).json({ status: 'error', database: 'unavailable' });
+    console.error('Health check failed:', err.message);
+    res.status(503).json({
+      status: 'error',
+      database: 'unavailable',
+      message: 'The Enitosin server is running, but it cannot reach Supabase.'
+    });
   }
-});
+}
+
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 // =====================================================================
 // PRODUCTS
