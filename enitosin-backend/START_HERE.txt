@@ -1,0 +1,20 @@
+HOW TO RUN THIS PROJECT (do this every time, in order)
+
+1. Copy .env.example to .env (same folder as server.js) and fill in your
+   real ADMIN_KEY, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY.
+
+2. Open a terminal in this folder and run:
+   npm install
+   npm start
+
+3. Wait for this line in the terminal:
+   ENITOSIN backend running -> http://localhost:3000
+   Keep that terminal window OPEN the whole time you're testing.
+
+4. In your browser, go to these URLs (do NOT double-click the html files):
+   http://localhost:3000/index.html
+   http://localhost:3000/admin.html
+
+If it still says "Server not running," it means step 2/3 isn't
+currently running in a terminal on this machine. That message now
+tells you exactly what to do instead of a vague connection error.

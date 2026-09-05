@@ -633,7 +633,7 @@
         products = await res.json();
       } catch (err) {
         console.error('Could not reach backend, is server.js running?', err);
-        showToast('Could not connect to the store server.');
+        showToast('Server not running — start it with "npm start" in the project folder.');
         products = [];
       }
       renderProducts(products);
