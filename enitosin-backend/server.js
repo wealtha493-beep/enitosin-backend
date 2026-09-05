@@ -6,6 +6,7 @@
  * filesystem. The server keeps the Supabase secret key server-side only.
  */
 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
