@@ -355,7 +355,10 @@
       </div>
       <div class="section-header">
         <h3>Activity Log</h3>
-        <button class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="loadLogs()">Refresh</button>
+        <div style="display:flex; gap:0.6rem;">
+          <button class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="toggleActivityLog()" id="toggleLogsBtn">Hide</button>
+          <button class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="loadLogs()">Refresh</button>
+        </div>
       </div>
       <div id="activityLog" style="max-height: 360px; overflow-y: auto; font-size: 0.85rem;">
         <!-- Populated live from /api/logs -->
@@ -678,6 +681,15 @@
     }
 
     // ---------- activity log ----------
+    let activityLogVisible = true;
+    function toggleActivityLog() {
+      activityLogVisible = !activityLogVisible;
+      const container = document.getElementById('activityLog');
+      const btn = document.getElementById('toggleLogsBtn');
+      container.style.display = activityLogVisible ? 'block' : 'none';
+      btn.textContent = activityLogVisible ? 'Hide' : 'Show';
+    }
+
     async function loadLogs() {
       const res = await fetch(`${API_BASE}/logs`, { headers: authHeaders() });
       if (!res.ok) return;
