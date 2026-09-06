@@ -249,12 +249,12 @@
       <p style="font-size:0.65rem; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase;">Executive Backoffice</p>
     </div>
     <ul class="nav-menu">
-      <li class="active"><a href="#">Dashboard</a></li>
-      <li><a href="#">Products</a></li>
-      <li><a href="#">Orders</a></li>
-      <li><a href="#">Customers</a></li>
-      <li><a href="#">Inventory</a></li>
-      <li><a href="#settingsSection" onclick="document.getElementById('settingsSection').scrollIntoView({behavior:'smooth'})">Settings</a></li>
+      <li class="active"><a href="#" onclick="return goToSection(event, 'top', this)">Dashboard</a></li>
+      <li><a href="#" onclick="return goToSection(event, 'productsSection', this)">Products</a></li>
+      <li><a href="#" onclick="return goToSection(event, 'ordersSection', this)">Orders</a></li>
+      <li><a href="#" onclick="return goToSection(event, 'top', this)">Customers</a></li>
+      <li><a href="#" onclick="return goToSection(event, 'productsSection', this)">Inventory</a></li>
+      <li><a href="#settingsSection" onclick="return goToSection(event, 'settingsSection', this)">Settings</a></li>
       <li><a href="index.html">← View Store Front</a></li>
     </ul>
   </aside>
@@ -300,7 +300,7 @@
     </div>
 
     <!-- PRODUCT MANAGEMENT SECTION -->
-    <div class="dashboard-section">
+    <div class="dashboard-section" id="productsSection">
       <div class="section-header">
         <h3>Catalog Inventory</h3>
         <button class="gold-btn" onclick="openAddProductModal()">+ Add New Product</button>
@@ -326,7 +326,7 @@
     </div>
 
     <!-- ORDERS OVERVIEW SECTION -->
-    <div class="dashboard-section">
+    <div class="dashboard-section" id="ordersSection">
       <div class="section-header">
         <h3>Recent Orders</h3>
       </div>
@@ -486,6 +486,19 @@
     }
 
     // ---------- admin key gate ----------
+    function goToSection(evt, targetId, linkEl) {
+      evt.preventDefault();
+      document.querySelectorAll('.nav-menu li').forEach(li => li.classList.remove('active'));
+      linkEl.closest('li').classList.add('active');
+      if (targetId === 'top') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        const el = document.getElementById(targetId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return false;
+    }
+
     function toggleAdminKeyVisibility() {
       const input = document.getElementById('adminKeyInput');
       const btn = document.getElementById('toggleAdminKeyBtn');

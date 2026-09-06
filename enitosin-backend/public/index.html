@@ -150,6 +150,24 @@
       justify-content: center;
     }
     .hamburger { display: none; font-size: 1.5rem; background: none; border: none; color: #fff; }
+    .nav-links.mobile-open {
+      display: flex !important;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      gap: 0;
+      background: var(--bg-dark, #0a0512);
+      border-top: 1px solid var(--border-gold);
+      padding: 0.5rem 0;
+      z-index: 999;
+    }
+    .nav-links.mobile-open a {
+      padding: 0.9rem 1.2rem;
+      display: block;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
 
     /* HERO SECTION */
     .hero {
@@ -764,6 +782,22 @@
     function toggleCart() {
       document.getElementById('cartDrawer').classList.toggle('active');
     }
+
+    function toggleMobileNav() {
+      const navLinks = document.querySelector('.nav-links');
+      if (!navLinks) return;
+      navLinks.classList.toggle('mobile-open');
+    }
+
+    // close the mobile menu after tapping a link, so it doesn't stay open
+    document.addEventListener('DOMContentLoaded', () => {
+      const navLinks = document.querySelector('.nav-links');
+      if (navLinks) {
+        navLinks.querySelectorAll('a').forEach(a => {
+          a.addEventListener('click', () => navLinks.classList.remove('mobile-open'));
+        });
+      }
+    });
 
     function openQuickView(id) {
       const p = products.find(prod => prod.id === id);
