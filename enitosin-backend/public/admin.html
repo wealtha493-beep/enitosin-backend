@@ -214,6 +214,113 @@
       .nav-menu { display: flex; overflow-x: auto; padding: 0.5rem; }
       .nav-menu li a { padding: 0.5rem 1rem; white-space: nowrap; }
     }
+
+    /* ================================================================
+       ENITOSIN ADMIN MOTION SYSTEM — subtle executive dashboard motion
+       ================================================================ */
+    :root { --motion-ease: cubic-bezier(0.22, 1, 0.36, 1); }
+
+    .top-header {
+      animation: adminDrop .7s var(--motion-ease) both;
+      box-shadow: 0 8px 30px rgba(0,0,0,.16);
+    }
+    aside {
+      animation: adminSlide .75s var(--motion-ease) both;
+    }
+    main { animation: adminMain .75s var(--motion-ease) .08s both; }
+
+    .metric-card, .dashboard-section {
+      transition: transform .45s var(--motion-ease), box-shadow .45s ease, border-color .45s ease;
+    }
+    .metric-card:hover, .dashboard-section:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 36px rgba(0,0,0,.22);
+      border-color: rgba(212,175,55,.45);
+    }
+    .metric-card {
+      animation: cardIn .65s var(--motion-ease) both;
+    }
+    .metric-card:nth-child(1) { animation-delay: .12s; }
+    .metric-card:nth-child(2) { animation-delay: .18s; }
+    .metric-card:nth-child(3) { animation-delay: .24s; }
+    .metric-card:nth-child(4) { animation-delay: .30s; }
+
+    .dashboard-section {
+      opacity: 0;
+      transform: translateY(22px);
+    }
+    .dashboard-section.motion-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .nav-menu li a {
+      position: relative;
+      overflow: hidden;
+      transition: color .3s ease, background .3s ease, padding-left .3s var(--motion-ease);
+    }
+    .nav-menu li a:hover { padding-left: 1.8rem; }
+    .nav-menu li a::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      height: 1px;
+      width: 0;
+      background: var(--gold-primary);
+      transition: width .35s var(--motion-ease);
+    }
+    .nav-menu li a:hover::after { width: 100%; }
+
+    .modal-overlay {
+      transition: opacity .3s ease, visibility .3s ease;
+    }
+    .modal-content {
+      transform: translateY(18px) scale(.97);
+      transition: transform .4s var(--motion-ease), opacity .3s ease;
+    }
+    .modal-overlay.active .modal-content { transform: translateY(0) scale(1); }
+
+    button, .btn, input, select, textarea {
+      transition: transform .25s var(--motion-ease), box-shadow .3s ease, border-color .3s ease;
+    }
+    button:not(:disabled):hover { transform: translateY(-1px); }
+    input:focus, select:focus, textarea:focus {
+      box-shadow: 0 0 0 3px rgba(212,175,55,.10);
+    }
+
+    .log-entry {
+      transition: background .25s ease, padding-left .3s var(--motion-ease);
+    }
+    .log-entry:hover {
+      background: rgba(212,175,55,.045);
+      padding-left: .55rem;
+    }
+
+    @keyframes adminDrop {
+      from { opacity: 0; transform: translateY(-18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes adminSlide {
+      from { opacity: 0; transform: translateX(-22px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes adminMain {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+      .dashboard-section { opacity: 1 !important; transform: none !important; }
+    }
+
   </style>
 </head>
 <body>
@@ -799,6 +906,21 @@
       }
       // otherwise leave the gate visible for key entry
     })();
+
+    // ---------- premium admin motion ----------
+    const adminMotionObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('motion-visible');
+        adminMotionObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.08 });
+
+    document.querySelectorAll('.dashboard-section').forEach((section, i) => {
+      section.style.transitionDelay = `${Math.min(i * 70, 280)}ms`;
+      adminMotionObserver.observe(section);
+    });
+
   </script>
 </body>
 </html>
