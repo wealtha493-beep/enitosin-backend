@@ -153,21 +153,39 @@
     .nav-links.mobile-open {
       display: flex !important;
       position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
+      top: calc(100% + 8px);
+      right: 1rem;
+      left: auto;
+      width: 200px;
       flex-direction: column;
       gap: 0;
-      background: var(--bg-dark, #0a0512);
-      border-top: 1px solid var(--border-gold);
-      padding: 0.5rem 0;
+      background: rgba(10, 5, 18, 0.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--border-gold);
+      border-radius: 8px;
+      padding: 0.4rem 0;
       z-index: 999;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
     }
     .nav-links.mobile-open a {
-      padding: 0.9rem 1.2rem;
+      padding: 0.7rem 1rem;
       display: block;
+      font-size: 0.8rem;
       border-bottom: 1px solid rgba(255,255,255,0.05);
     }
+    .nav-links-close {
+      display: none;
+      width: 100%;
+      text-align: right;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1rem;
+      padding: 0.4rem 0.9rem;
+      cursor: pointer;
+    }
+    .nav-links.mobile-open .nav-links-close { display: block; }
 
     /* HERO SECTION */
     .hero {
@@ -375,8 +393,34 @@
     @media (max-width: 768px) {
       .nav-links { display: none; }
       .hamburger { display: block; }
-      .hero-title { font-size: 2.4rem; }
+      .hero-title { font-size: 2.2rem; word-wrap: break-word; overflow-wrap: break-word; }
+      .hero-desc { font-size: 0.95rem; }
+      .hero-cta { flex-wrap: wrap; }
+      .hero-cta a, .hero-cta button { flex: 1 1 auto; text-align: center; }
       .cart-drawer { width: 100%; }
+      .nav-container { padding: 0.9rem 0; }
+      .nav-actions { gap: 0.9rem; }
+      .brand { font-size: 1.3rem; }
+      .logo-text { font-size: 1.3rem; }
+      section { padding: 3rem 0 !important; }
+      h2 { font-size: 1.6rem; word-wrap: break-word; overflow-wrap: break-word; }
+      .product-info { padding: 0.9rem; }
+      .old-price { display: inline-block; }
+    }
+
+    @media (max-width: 480px) {
+      .hero-title { font-size: 1.75rem; }
+      .hero-subtitle { font-size: 0.75rem; letter-spacing: 2px; }
+      .nav-links.mobile-open { width: 170px; right: 0.5rem; }
+      .brand { font-size: 1.1rem; }
+      .logo-text { font-size: 1.1rem; }
+      .logo-img { height: 30px; }
+      .cart-footer-actions { flex-direction: column; }
+    }
+
+    h1, h2, h3, p, a, span, button {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     /* ================================================================
@@ -574,6 +618,7 @@
     
      
       <ul class="nav-links">
+        <button class="nav-links-close" onclick="toggleMobileNav()">✕ Close</button>
         <li><a href="#home">Home</a></li>
         <li><a href="#shop">Shop</a></li>
         <li><a href="#shoes">Shoes</a></li>
@@ -763,7 +808,10 @@
         <span>Subtotal:</span>
         <span id="cartSubtotal" style="font-weight:bold; color:var(--gold-primary);">₦0.00</span>
       </div>
-      <button class="gold-btn" style="width:100%; text-align:center;" onclick="openCheckout()">Proceed To Checkout</button>
+      <div class="cart-footer-actions" style="display:flex; gap:0.6rem;">
+        <button class="outline-btn" style="flex:1; text-align:center;" onclick="toggleCart()">Cancel</button>
+        <button class="gold-btn" style="flex:2; text-align:center;" onclick="openCheckout()">Proceed To Checkout</button>
+      </div>
     </div>
   </div>
 
