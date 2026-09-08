@@ -574,7 +574,6 @@
         </div>
         <div style="margin-bottom:0.8rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Stock Status</label><select id="editProdStock" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></select></div>
         <div style="margin-bottom:0.8rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Badge</label><input type="text" id="editProdBadge" placeholder="e.g. New, Sale, Best Seller" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"></div>
-        <div style="margin-bottom:0.8rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Description</label><textarea id="editProdDesc" rows="4" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;resize:vertical;"></textarea></div>
         <div style="margin-bottom:1.5rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Replace Product Image (optional)</label><input type="file" id="editProdImageFile" accept="image/*" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.35rem;">Leave this empty to keep the current image.</p></div>
         <div style="display:flex;justify-content:flex-end;gap:0.5rem;"><button type="button" class="gold-btn" style="background:transparent;color:#fff;border:1px solid var(--border-gold);" onclick="closeEditProductModal()">Cancel</button><button type="submit" class="gold-btn">Save Changes</button></div>
       </form>
@@ -715,7 +714,6 @@
       document.getElementById('editProdOldPrice').value = p.oldPrice ?? '';
       document.getElementById('editProdStock').value = p.stock || 'In Stock';
       document.getElementById('editProdBadge').value = p.badge || '';
-      document.getElementById('editProdDesc').value = p.desc || '';
       document.getElementById('editProdImageFile').value = '';
       document.getElementById('editProductModal').classList.add('active');
     }
@@ -733,7 +731,6 @@
         oldPrice: document.getElementById('editProdOldPrice').value === '' ? null : Number(document.getElementById('editProdOldPrice').value),
         stock: document.getElementById('editProdStock').value,
         badge: document.getElementById('editProdBadge').value.trim(),
-        desc: document.getElementById('editProdDesc').value.trim(),
       };
 
       const file = document.getElementById('editProdImageFile').files[0];
