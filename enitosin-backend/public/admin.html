@@ -140,6 +140,14 @@
     }
     .status-badge.in-stock { background: rgba(76, 175, 80, 0.15); color: #81c784; border: 1px solid #4caf50; }
     .status-badge.low-stock { background: rgba(255, 152, 0, 0.15); color: #ffb74d; border: 1px solid #ff9800; }
+    .status-badge.rejected { background: rgba(244, 67, 54, 0.15); color: #ef9a9a; border: 1px solid #f44336; }
+    .order-action-btn {
+      font-size: 0.7rem; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--border-gold); background: transparent; color: #fff; margin-right: 0.3rem;
+    }
+    .order-action-btn.accept { border-color: #4caf50; color: #81c784; }
+    .order-action-btn.reject { border-color: #f44336; color: #ef9a9a; }
+    .order-action-btn:disabled { opacity: 0.35; cursor: default; }
 
     /* BUTTONS */
     .gold-btn {
@@ -446,6 +454,7 @@
               <th>Items</th>
               <th>Total Amount</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="adminOrdersTable">
@@ -519,15 +528,19 @@
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.8rem;">
           <div>
             <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Category</label>
-            <select id="prodCategory" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+            <select id="prodCategory" onchange="populateSubcategoryOptions('prodCategory','prodSubcategory')" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
               <option value="shoes">Shoes</option>
               <option value="bags">Bags</option>
             </select>
           </div>
           <div>
-            <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Price (₦)</label>
-            <input type="number" id="prodPrice" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+            <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Subcategory</label>
+            <select id="prodSubcategory" style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;"></select>
           </div>
+        </div>
+        <div style="margin-bottom: 0.8rem;">
+          <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Price (₦)</label>
+          <input type="number" id="prodPrice" required style="width:100%; padding:0.5rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
         </div>
         <div style="margin-bottom: 1.5rem;">
           <label style="display:block; font-size:0.75rem; margin-bottom:0.2rem; color:var(--text-muted);">Product Image File</label>
@@ -552,13 +565,14 @@
           <input type="text" id="editProdName" required style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.8rem;">
-          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Category</label><select id="editProdCategory" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><option value="shoes">Shoes</option><option value="bags">Bags</option></select></div>
-          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Price (₦)</label><input type="number" id="editProdPrice" min="0" step="0.01" required style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"></div>
+          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Category</label><select id="editProdCategory" onchange="populateSubcategoryOptions('editProdCategory','editProdSubcategory')" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><option value="shoes">Shoes</option><option value="bags">Bags</option></select></div>
+          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Subcategory</label><select id="editProdSubcategory" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"></select></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.8rem;">
+          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Price (₦)</label><input type="number" id="editProdPrice" min="0" step="0.01" required style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"></div>
           <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Old Price (₦)</label><input type="number" id="editProdOldPrice" min="0" step="0.01" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"></div>
-          <div><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Stock Status</label><select id="editProdStock" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></select></div>
         </div>
+        <div style="margin-bottom:0.8rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Stock Status</label><select id="editProdStock" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></select></div>
         <div style="margin-bottom:0.8rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Badge</label><input type="text" id="editProdBadge" placeholder="e.g. New, Sale, Best Seller" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"></div>
         <div style="margin-bottom:0.8rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Description</label><textarea id="editProdDesc" rows="4" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;resize:vertical;"></textarea></div>
         <div style="margin-bottom:1.5rem;"><label style="display:block;font-size:0.75rem;margin-bottom:0.2rem;color:var(--text-muted);">Replace Product Image (optional)</label><input type="file" id="editProdImageFile" accept="image/*" style="width:100%;padding:0.5rem;background:var(--bg-dark);border:1px solid var(--border-gold);color:#fff;"><p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.35rem;">Leave this empty to keep the current image.</p></div>
@@ -581,6 +595,23 @@
 
     let adminKey = localStorage.getItem('enitosin_admin_key') || '';
     let adminProducts = [];
+
+    // ------------------------------------------------------------------
+    // CATEGORY / SUBCATEGORY STRUCTURE
+    // Edit these lists any time to rename or add subcategories — every
+    // dropdown in the admin panel pulls from here automatically.
+    // ------------------------------------------------------------------
+    const SUBCATEGORIES = {
+      shoes: ['Corporate Shoes', 'Canvas/Palm Shoes', 'Crocs', 'School Sandals', 'Slippers'],
+      bags: ['Fashion Bags', 'School Bags', 'Traveling Bags'],
+    };
+
+    function populateSubcategoryOptions(categorySelectId, subcategorySelectId) {
+      const category = document.getElementById(categorySelectId).value;
+      const subSelect = document.getElementById(subcategorySelectId);
+      const options = SUBCATEGORIES[category] || [];
+      subSelect.innerHTML = options.map(opt => `<option value="${escapeHTML(opt)}">${escapeHTML(opt)}</option>`).join('');
+    }
 
     function escapeHTML(value) {
       return String(value ?? '').replace(/[&<>'"]/g, char => ({
@@ -652,7 +683,7 @@
               <td>#EN-${escapeHTML(p.id)}</td>
               <td><img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" class="table-img"></td>
               <td style="font-weight:600;">${escapeHTML(p.name)}</td>
-              <td style="text-transform:capitalize;">${escapeHTML(p.category)}</td>
+              <td style="text-transform:capitalize;">${escapeHTML(p.category)}${p.subcategory ? `<br><span style="color:var(--text-muted); font-size:0.7rem;">${escapeHTML(p.subcategory)}</span>` : ''}</td>
               <td>₦${Number(p.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td><span class="status-badge ${escapeHTML(stockClass)}">${escapeHTML(p.stock)}</span></td>
               <td>
@@ -666,7 +697,10 @@
       document.getElementById('activeProductsCount').innerText = adminProducts.length;
     }
 
-    function openAddProductModal() { document.getElementById('addProductModal').classList.add('active'); }
+    function openAddProductModal() {
+      populateSubcategoryOptions('prodCategory', 'prodSubcategory');
+      document.getElementById('addProductModal').classList.add('active');
+    }
     function closeAddProductModal() { document.getElementById('addProductModal').classList.remove('active'); }
 
     function openEditProductModal(id) {
@@ -675,6 +709,8 @@
       document.getElementById('editProdId').value = p.id;
       document.getElementById('editProdName').value = p.name || '';
       document.getElementById('editProdCategory').value = p.category || 'shoes';
+      populateSubcategoryOptions('editProdCategory', 'editProdSubcategory');
+      document.getElementById('editProdSubcategory').value = p.subcategory || '';
       document.getElementById('editProdPrice').value = Number(p.price || 0);
       document.getElementById('editProdOldPrice').value = p.oldPrice ?? '';
       document.getElementById('editProdStock').value = p.stock || 'In Stock';
@@ -692,6 +728,7 @@
       const payload = {
         name: document.getElementById('editProdName').value.trim(),
         category: document.getElementById('editProdCategory').value,
+        subcategory: document.getElementById('editProdSubcategory').value,
         price: Number(document.getElementById('editProdPrice').value),
         oldPrice: document.getElementById('editProdOldPrice').value === '' ? null : Number(document.getElementById('editProdOldPrice').value),
         stock: document.getElementById('editProdStock').value,
@@ -738,6 +775,7 @@
         const payload = {
           name: document.getElementById('prodName').value,
           category: document.getElementById('prodCategory').value,
+          subcategory: document.getElementById('prodSubcategory').value,
           price: parseFloat(document.getElementById('prodPrice').value),
           stock: 'In Stock',
           image: imageDataUrl,
@@ -782,12 +820,13 @@
       const tbody = document.getElementById('adminOrdersTable');
       tbody.innerHTML = '';
       if (!orders.length) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No orders yet — place one from the storefront to see it here.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No orders yet — place one from the storefront to see it here.</td></tr>`;
         return;
       }
       orders.forEach(o => {
         const itemsSummary = o.items.map(i => `${i.name} ×${i.qty}`).join(', ');
-        const statusClass = o.status === 'Shipped' ? 'in-stock' : 'low-stock';
+        const statusClassMap = { Pending: 'low-stock', Accepted: 'in-stock', Rejected: 'rejected' };
+        const statusClass = statusClassMap[o.status] || 'low-stock';
         tbody.innerHTML += `
           <tr>
             <td>#${escapeHTML(o.id)}</td>
@@ -795,9 +834,29 @@
             <td>${escapeHTML(itemsSummary)}</td>
             <td>₦${Number(o.total).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td><span class="status-badge ${escapeHTML(statusClass)}">${escapeHTML(o.status)}</span></td>
+            <td>
+              <button class="order-action-btn accept" ${o.status === 'Accepted' ? 'disabled' : ''} onclick="updateOrderStatus('${escapeHTML(o.id)}','Accepted')">Accept</button>
+              <button class="order-action-btn reject" ${o.status === 'Rejected' ? 'disabled' : ''} onclick="updateOrderStatus('${escapeHTML(o.id)}','Rejected')">Reject</button>
+            </td>
           </tr>
         `;
       });
+    }
+
+    async function updateOrderStatus(orderId, status) {
+      try {
+        const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(orderId)}/status`, {
+          method: 'PUT',
+          headers: authHeaders(),
+          body: JSON.stringify({ status }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not update order status.');
+        await loadOrders();
+        await loadLogs();
+      } catch (err) {
+        alert(err.message);
+      }
     }
 
     // ---------- stats ----------

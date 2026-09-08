@@ -238,6 +238,7 @@ function normalizeProduct(row) {
     id: row.id,
     name: row.name,
     category: row.category,
+    subcategory: row.subcategory || '',
     price: Number(row.price),
     oldPrice: row.old_price === null || row.old_price === undefined ? null : Number(row.old_price),
     badge: row.badge || null,
@@ -253,6 +254,9 @@ function normalizeProduct(row) {
 function productPayload(body, existing = {}) {
   const name = String(body.name ?? existing.name ?? '').trim();
   const category = String(body.category ?? existing.category ?? '').trim();
+  const subcategory = body.subcategory === undefined
+    ? (existing.subcategory || '')
+    : String(body.subcategory || '').trim();
   const image = String(body.image ?? existing.image ?? '').trim();
   const price = Number(body.price ?? existing.price);
   const hasOldPrice = Object.prototype.hasOwnProperty.call(body, 'oldPrice');
@@ -269,6 +273,7 @@ function productPayload(body, existing = {}) {
   return {
     name,
     category,
+    subcategory,
     price,
     old_price: oldPrice,
     badge: body.badge === undefined ? (existing.badge || null) : (body.badge ? String(body.badge).trim() : null),
@@ -355,7 +360,7 @@ app.post('/api/orders', async (req, res) => {
       customer: { name, email, address },
       items: normalizedItems,
       total: Number(total.toFixed(2)),
-      status: 'Processing',
+      status: 'Pending',
       created_at: createdAt,
     };
 
@@ -404,7 +409,7 @@ app.get('/api/orders', requireAdmin, async (req, res) => {
 app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
   try {
     const { status } = req.body || {};
-    const allowedStatuses = ['Processing', 'Shipped', 'Delivered', 'Cancelled'];
+    const allowedStatuses = ['Pending', 'Accepted', 'Rejected'];
     if (!allowedStatuses.includes(status)) return res.status(400).json({ error: 'Invalid order status.' });
     const rows = await dbUpdate('orders', { id: `eq.${encodeURIComponent(req.params.id)}` }, { status });
     if (!rows.length) return res.status(404).json({ error: 'Order not found.' });
