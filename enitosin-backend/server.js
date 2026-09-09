@@ -29,6 +29,10 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'ENITOSIN Store <onboarding@resend.dev>';
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
+if (!PAYSTACK_SECRET_KEY) {
+  console.warn('WARNING: PAYSTACK_SECRET_KEY not set — checkout payments are disabled.');
+}
 
 let resendClient = null;
 if (RESEND_API_KEY) resendClient = new Resend(RESEND_API_KEY);
@@ -41,7 +45,12 @@ app.use((req, res, next) => {
   next();
 });
 app.use(cors());
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({
+  limit: '15mb',
+  // Paystack signs the exact raw request body — keep a copy before it's
+  // parsed into an object, so the webhook handler can verify it.
+  verify: (req, res, buf) => { req.rawBody = buf; },
+}));
 app.use(express.static(require('path').join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------
@@ -328,6 +337,74 @@ app.delete('/api/products/:id', requireAdmin, async (req, res) => {
 // =====================================================================
 // ORDERS
 // =====================================================================
+
+// Validates cart items against the real product catalog and returns
+// normalized {id, name, price, qty} rows plus the computed total.
+// Shared by the payment-initialize step and the final order creation,
+// so a customer can never pay based on stale/tampered prices.
+async function validateAndPriceItems(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('At least one item is required.');
+  }
+  if (items.length > 50) throw new Error('Too many items in one order.');
+
+  const products = await dbList('products', { select: 'id,name,price' });
+  const normalizedItems = [];
+  for (const item of items) {
+    const product = products.find(p => String(p.id) === String(item.id));
+    const qty = Number(item.qty);
+    if (!product || !Number.isInteger(qty) || qty < 1 || qty > 99) {
+      throw new Error('One or more order items are invalid or unavailable.');
+    }
+    normalizedItems.push({ id: product.id, name: product.name, price: Number(product.price), qty });
+  }
+  const total = normalizedItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+  return { normalizedItems, total: Number(total.toFixed(2)) };
+}
+
+// Creates the actual order row in Supabase. Used both by the legacy
+// direct-order endpoint and by the Paystack payment flow once a
+// payment has been confirmed as successful.
+async function createOrderRecord({ customer, normalizedItems, total, paymentStatus, paymentReference }) {
+  const { name, email, address } = customer;
+  const orderId = `EN-${Date.now().toString().slice(-8)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+  const createdAt = new Date().toISOString();
+  const orderRecord = {
+    id: orderId,
+    customer: { name, email, address },
+    items: normalizedItems,
+    total,
+    status: 'Pending',
+    payment_status: paymentStatus || 'Unpaid',
+    payment_reference: paymentReference || null,
+    created_at: createdAt,
+  };
+
+  const inserted = await dbInsert('orders', [orderRecord]);
+  const row = inserted[0];
+  const newOrder = {
+    id: row.id,
+    customer: row.customer,
+    items: row.items,
+    total: Number(row.total),
+    status: row.status,
+    paymentStatus: row.payment_status,
+    paymentReference: row.payment_reference,
+    createdAt: row.created_at,
+  };
+
+  const existingCustomer = await dbList('customers', { email: `eq.${encodeURIComponent(email)}`, select: 'id' });
+  if (!existingCustomer.length) {
+    await dbInsert('customers', [{ name, email, joined_at: createdAt }]);
+  }
+
+  const money = n => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  await logActivity('order', `New order ${newOrder.id} from ${name} — ${money(newOrder.total)}`, { orderId: newOrder.id });
+  sendOrderNotificationEmail(newOrder).catch(console.error);
+
+  return newOrder;
+}
+
 app.post('/api/orders', async (req, res) => {
   try {
     const { customer, items } = req.body || {};
@@ -335,58 +412,169 @@ app.post('/api/orders', async (req, res) => {
     const email = String(customer?.email || '').trim().toLowerCase();
     const address = String(customer?.address || '').trim();
 
-    if (!name || !email || !address || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Customer name, email, address and at least one item are required.' });
+    if (!name || !email || !address) {
+      return res.status(400).json({ error: 'Customer name, email and address are required.' });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please provide a valid email address.' });
-    if (items.length > 50) return res.status(400).json({ error: 'Too many items in one order.' });
 
-    const products = await dbList('products', { select: 'id,name,price' });
-    const normalizedItems = [];
-    for (const item of items) {
-      const product = products.find(p => String(p.id) === String(item.id));
-      const qty = Number(item.qty);
-      if (!product || !Number.isInteger(qty) || qty < 1 || qty > 99) {
-        return res.status(400).json({ error: 'One or more order items are invalid or unavailable.' });
-      }
-      normalizedItems.push({ id: product.id, name: product.name, price: Number(product.price), qty });
-    }
-
-    const total = normalizedItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const orderId = `EN-${Date.now().toString().slice(-8)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
-    const createdAt = new Date().toISOString();
-    const orderRecord = {
-      id: orderId,
-      customer: { name, email, address },
-      items: normalizedItems,
-      total: Number(total.toFixed(2)),
-      status: 'Pending',
-      created_at: createdAt,
-    };
-
-    const inserted = await dbInsert('orders', [orderRecord]);
-    const row = inserted[0];
-    const newOrder = {
-      id: row.id,
-      customer: row.customer,
-      items: row.items,
-      total: Number(row.total),
-      status: row.status,
-      createdAt: row.created_at,
-    };
-
-    const existingCustomer = await dbList('customers', { email: `eq.${encodeURIComponent(email)}`, select: 'id' });
-    if (!existingCustomer.length) {
-      await dbInsert('customers', [{ name, email, joined_at: createdAt }]);
-    }
-
-    const money = n => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    await logActivity('order', `New order ${newOrder.id} from ${name} — ${money(newOrder.total)}`, { orderId: newOrder.id });
-    sendOrderNotificationEmail(newOrder).catch(console.error);
+    const { normalizedItems, total } = await validateAndPriceItems(items);
+    const newOrder = await createOrderRecord({ customer: { name, email, address }, normalizedItems, total });
 
     res.status(201).json(newOrder);
   } catch (err) {
-    handleDbError(res, err, 'Could not place order.');
+    handleDbError(res, err, err.message || 'Could not place order.');
+  }
+});
+
+// =====================================================================
+// PAYMENTS (Paystack)
+// =====================================================================
+app.post('/api/payments/initialize', async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) {
+      return res.status(503).json({ error: 'Payments are not configured yet. Please contact the store.' });
+    }
+    const { customer, items } = req.body || {};
+    const name = String(customer?.name || '').trim();
+    const email = String(customer?.email || '').trim().toLowerCase();
+    const address = String(customer?.address || '').trim();
+
+    if (!name || !email || !address) {
+      return res.status(400).json({ error: 'Customer name, email and address are required.' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+
+    const { normalizedItems, total } = await validateAndPriceItems(items);
+    if (total <= 0) return res.status(400).json({ error: 'Order total must be greater than zero.' });
+
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        amount: Math.round(total * 100), // Paystack expects kobo (₦1 = 100 kobo)
+        currency: 'NGN',
+        callback_url: `${origin}/index.html`,
+        metadata: {
+          customer: { name, email, address },
+          items: normalizedItems,
+        },
+      }),
+    });
+
+    const data = await paystackRes.json();
+    if (!paystackRes.ok || !data.status) {
+      console.error('Paystack initialize failed:', data);
+      return res.status(502).json({ error: 'Could not start payment. Please try again.' });
+    }
+
+    res.json({
+      authorizationUrl: data.data.authorization_url,
+      reference: data.data.reference,
+    });
+  } catch (err) {
+    handleDbError(res, err, err.message || 'Could not start payment.');
+  }
+});
+
+// Shared by both the webhook and the verify endpoint — idempotent, so
+// whichever one runs first "wins" and the other just returns the same order.
+async function fulfillPaidOrder(reference, metadata) {
+  const existing = await dbList('orders', { payment_reference: `eq.${encodeURIComponent(reference)}`, select: '*' });
+  if (existing.length) {
+    const row = existing[0];
+    return {
+      id: row.id, customer: row.customer, items: row.items, total: Number(row.total),
+      status: row.status, paymentStatus: row.payment_status, paymentReference: row.payment_reference,
+      createdAt: row.created_at,
+    };
+  }
+
+  const customer = metadata?.customer || {};
+  const items = metadata?.items || [];
+  const { normalizedItems, total } = await validateAndPriceItems(items.map(i => ({ id: i.id, qty: i.qty })));
+
+  return createOrderRecord({
+    customer: { name: customer.name, email: customer.email, address: customer.address },
+    normalizedItems,
+    total,
+    paymentStatus: 'Paid',
+    paymentReference: reference,
+  });
+}
+
+// Paystack calls this directly, server-to-server, the moment a payment
+// succeeds — this is the only place we actually trust that money moved.
+app.post('/api/payments/webhook', async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) return res.sendStatus(503);
+
+    const signature = req.headers['x-paystack-signature'];
+    const expected = crypto.createHmac('sha512', PAYSTACK_SECRET_KEY).update(req.rawBody || Buffer.from('')).digest('hex');
+    if (!signature || signature !== expected) {
+      console.warn('Rejected webhook: invalid Paystack signature.');
+      return res.sendStatus(401);
+    }
+
+    const event = req.body;
+    // acknowledge immediately — Paystack retries if it doesn't get a fast 200
+    res.sendStatus(200);
+
+    if (event?.event === 'charge.success') {
+      const reference = event.data?.reference;
+      const metadata = event.data?.metadata;
+      if (reference) {
+        await fulfillPaidOrder(reference, metadata).catch(err => {
+          console.error('Failed to fulfill order from webhook:', err);
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Webhook error:', err);
+    if (!res.headersSent) res.sendStatus(500);
+  }
+});
+
+// The customer's browser hits this after Paystack redirects back —
+// confirms payment directly with Paystack's API as a safety net in case
+// the webhook is delayed, and returns the finished order either way.
+app.get('/api/payments/verify/:reference', async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) return res.status(503).json({ error: 'Payments are not configured.' });
+    const { reference } = req.params;
+
+    const existing = await dbList('orders', { payment_reference: `eq.${encodeURIComponent(reference)}`, select: '*' });
+    if (existing.length) {
+      const row = existing[0];
+      return res.json({
+        status: 'success',
+        order: {
+          id: row.id, customer: row.customer, items: row.items, total: Number(row.total),
+          status: row.status, paymentStatus: row.payment_status, paymentReference: row.payment_reference,
+          createdAt: row.created_at,
+        },
+      });
+    }
+
+    const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+    });
+    const data = await verifyRes.json();
+
+    if (!verifyRes.ok || !data.status || data.data?.status !== 'success') {
+      return res.json({ status: 'failed' });
+    }
+
+    const order = await fulfillPaidOrder(reference, data.data.metadata);
+    res.json({ status: 'success', order });
+  } catch (err) {
+    handleDbError(res, err, 'Could not verify payment.');
   }
 });
 
@@ -399,6 +587,8 @@ app.get('/api/orders', requireAdmin, async (req, res) => {
       items: row.items,
       total: Number(row.total),
       status: row.status,
+      paymentStatus: row.payment_status || 'Unpaid',
+      paymentReference: row.payment_reference || null,
       createdAt: row.created_at,
     })));
   } catch (err) {

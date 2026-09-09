@@ -1042,7 +1042,7 @@
         </div>
         <div style="border-top:1px solid var(--border-gold); padding-top:1rem; margin-top:1rem; text-align:right;">
           <p style="margin-bottom:1rem; color:var(--text-muted);">Total Due: <span id="checkoutTotal" style="color:var(--gold-primary); font-weight:bold;">₦0.00</span></p>
-          <button type="submit" class="gold-btn">Place Order (Demo)</button>
+          <button type="submit" class="gold-btn">Proceed to Payment</button>
         </div>
       </form>
     </div>
@@ -1352,39 +1352,63 @@
         return;
       }
 
-      const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
       const payload = {
         customer: { name, email, address },
-        items: cart.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
-        total,
+        items: cart.map(i => ({ id: i.id, qty: i.qty })),
       };
 
       const submitBtn = e.target.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      submitBtn.innerText = 'Placing Order...';
+      submitBtn.innerText = 'Redirecting to payment...';
 
       try {
-        const res = await fetch(`${API_BASE}/orders`, {
+        const res = await fetch(`${API_BASE}/payments/initialize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error('Order failed');
-        const order = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not start payment.');
 
-        showToast(`Order ${order.id} placed! It now appears in the admin log.`);
-        cart = [];
-        saveCart();
-        closeCheckout();
-        e.target.reset();
+        // remember the cart so we can clear it once payment is confirmed,
+        // even though the browser is about to leave this page
+        localStorage.setItem('enitosin_pending_reference', data.reference);
+        window.location.href = data.authorizationUrl;
       } catch (err) {
         console.error(err);
-        showToast('Something went wrong placing your order. Please try again.');
-      } finally {
+        showToast(err.message || 'Something went wrong starting payment. Please try again.');
         submitBtn.disabled = false;
-        submitBtn.innerText = 'Place Order (Demo)';
+        submitBtn.innerText = 'Proceed to Payment';
       }
     }
+
+    // If Paystack just redirected back here after payment, confirm it and
+    // clear the cart. Runs once on page load.
+    async function checkPaymentReturn() {
+      const params = new URLSearchParams(window.location.search);
+      const reference = params.get('reference') || params.get('trxref');
+      if (!reference) return;
+
+      // clean the URL immediately so a refresh doesn't re-trigger this
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      try {
+        const res = await fetch(`${API_BASE}/payments/verify/${encodeURIComponent(reference)}`);
+        const data = await res.json().catch(() => ({}));
+        if (data.status === 'success' && data.order) {
+          cart = [];
+          saveCart();
+          localStorage.removeItem('enitosin_pending_reference');
+          showToast(`Payment confirmed! Order ${data.order.id} is on its way to processing.`);
+        } else {
+          showToast('Payment was not completed. Your cart has been kept for you.');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Could not confirm payment status. Please check your email or contact us.');
+      }
+    }
+    document.addEventListener('DOMContentLoaded', checkPaymentReturn);
 
     function handleSubscribe(e) {
       e.preventDefault();

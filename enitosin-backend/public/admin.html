@@ -453,6 +453,7 @@
               <th>Customer</th>
               <th>Items</th>
               <th>Total Amount</th>
+              <th>Payment</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -820,7 +821,7 @@
       const tbody = document.getElementById('adminOrdersTable');
       tbody.innerHTML = '';
       if (!orders.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No orders yet — place one from the storefront to see it here.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No orders yet — place one from the storefront to see it here.</td></tr>`;
         return;
       }
       orders.forEach(o => {
@@ -833,6 +834,7 @@
             <td>${escapeHTML(o.customer.name)}<br><span style="color:var(--text-muted); font-size:0.75rem;">${escapeHTML(o.customer.email)}</span></td>
             <td>${escapeHTML(itemsSummary)}</td>
             <td>₦${Number(o.total).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td><span class="status-badge ${o.paymentStatus === 'Paid' ? 'in-stock' : 'rejected'}">${escapeHTML(o.paymentStatus || 'Unpaid')}</span></td>
             <td><span class="status-badge ${escapeHTML(statusClass)}">${escapeHTML(o.status)}</span></td>
             <td>
               <button class="order-action-btn accept" ${o.status === 'Accepted' ? 'disabled' : ''} onclick="updateOrderStatus('${escapeHTML(o.id)}','Accepted')">Accept</button>

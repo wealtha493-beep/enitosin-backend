@@ -25,6 +25,8 @@ create table if not exists public.orders (
   items jsonb not null,
   total numeric(12,2) not null check (total >= 0),
   status text not null default 'Pending',
+  payment_status text not null default 'Unpaid',
+  payment_reference text,
   created_at timestamptz not null default now()
 );
 
@@ -102,3 +104,6 @@ alter table public.settings enable row level security;
 -- Safe to run even if already applied — "if not exists" prevents errors.
 -- =====================================================================
 alter table public.products add column if not exists subcategory text default '';
+alter table public.orders add column if not exists payment_status text not null default 'Unpaid';
+alter table public.orders add column if not exists payment_reference text;
+create unique index if not exists orders_payment_reference_key on public.orders (payment_reference) where payment_reference is not null;

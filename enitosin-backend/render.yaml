@@ -16,6 +16,8 @@ services:
         sync: false   # your Resend API key (starts with "re_")
       - key: RESEND_FROM_EMAIL
         sync: false   # optional — e.g. "ENITOSIN Store <orders@yourdomain.com>" once you verify a domain on Resend
+      - key: PAYSTACK_SECRET_KEY
+        sync: false   # from Paystack dashboard -> Settings -> API Keys & Webhooks (sk_test_... while testing)
       - key: NODE_VERSION
         value: 20.11.0
 
