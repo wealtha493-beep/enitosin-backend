@@ -739,10 +739,11 @@
         const res = await fetch(`${API_BASE}/products/${id}`, { method:'PUT', headers:authHeaders(), body:JSON.stringify(payload) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'Failed to update product.');
-        await loadProducts();
-        await loadStats();
-        await loadLogs();
+        document.getElementById('editProdImageFile').value = '';
         closeEditProductModal();
+        loadProducts().catch(() => {});
+        loadStats().catch(() => {});
+        loadLogs().catch(() => {});
       };
 
       try {
@@ -786,10 +787,12 @@
           });
           if (!res.ok) throw new Error((await res.json()).error || 'Failed to add product');
 
-          await loadProducts();
-          await loadStats();
-          closeAddProductModal();
           e.target.reset();
+          fileInput.value = '';
+          closeAddProductModal();
+          loadProducts().catch(() => {});
+          loadStats().catch(() => {});
+          loadLogs().catch(() => {});
         } catch (err) {
           alert(err.message);
         }
