@@ -10,9 +10,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #0a0512;
-      --bg-card: #150a21;
-      --royal-purple: #230d38;
+      --bg-dark: #0f0a1a;
+      --bg-card: #1c1129;
+      --royal-purple: #291041;
       --accent-purple: #4c1d75;
       --gold-primary: #d4af37;
       --gold-light: #f3e5ab;
@@ -20,6 +20,16 @@
       --text-main: #f8f5fa;
       --text-muted: #bda3ce;
       --border-gold: rgba(212, 175, 55, 0.3);
+      --off-white: #faf7f0;
+      --off-white-soft: rgba(250, 247, 240, 0.06);
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 10px;
+      --radius-pill: 100px;
+      --shadow-sm: 0 2px 10px rgba(0,0,0,0.35);
+      --shadow-md: 0 12px 30px rgba(0,0,0,0.45);
+      --shadow-lg: 0 20px 50px rgba(0,0,0,0.55);
+      --shadow-gold: 0 8px 24px rgba(212,175,55,0.18);
       --font-serif: 'Cormorant Garamond', Georgia, serif;
       --font-sans: 'Montserrat', system-ui, sans-serif;
       --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -67,13 +77,40 @@
    }
 
     .brand-text-group { display: flex; flex-direction: column; line-height: 1.15; }
-    .brand-address {
+    .brand-address-trigger {
+      background: none; border: none; padding: 0; cursor: pointer; text-align: left;
       font-size: 0.68rem;
       color: var(--text-muted);
       letter-spacing: 0.3px;
       text-transform: none;
       margin-top: 0.15rem;
       font-family: var(--font-sans, inherit);
+    }
+    .brand-address-trigger:hover { color: var(--gold-primary); }
+
+    .store-info-panel {
+      display: none;
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 0;
+      width: 280px;
+      background: rgba(10, 5, 18, 0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--border-gold);
+      border-radius: 8px;
+      padding: 1.1rem;
+      z-index: 1001;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+    .store-info-panel.open { display: block; }
+    .store-info-panel img { height: 70px; width: auto; margin: 0 auto 0.7rem; display: block; }
+    .store-info-panel .store-info-address {
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--text-main);
+      line-height: 1.4;
     }
 
     .header-search {
@@ -120,7 +157,7 @@
       font-weight: 600;
       padding: 0.85rem 1.8rem;
       border: none;
-      border-radius: 2px;
+      border-radius: var(--radius-pill);
       cursor: pointer;
       text-transform: uppercase;
       font-size: 0.8rem;
@@ -128,15 +165,17 @@
       transition: var(--transition);
       display: inline-block;
       text-decoration: none;
+      box-shadow: var(--shadow-gold);
     }
     .gold-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(212, 175, 55, 0.35);
+      box-shadow: 0 10px 26px rgba(212, 175, 55, 0.4);
     }
     .outline-btn {
       background: transparent;
       color: var(--gold-primary);
       border: 1px solid var(--gold-primary);
+      border-radius: var(--radius-pill);
       padding: 0.85rem 1.8rem;
       font-weight: 600;
       cursor: pointer;
@@ -150,6 +189,7 @@
     .outline-btn:hover {
       background: rgba(212, 175, 55, 0.1);
       color: var(--gold-light);
+      transform: translateY(-2px);
     }
 
     /* HEADER & NAV */
@@ -254,14 +294,62 @@
     .section-title h2 { font-size: 2.5rem; margin-bottom: 0.5rem; }
     .section-title p { color: var(--text-muted); font-size: 0.95rem; }
 
+    /* TRUST STRIP */
+    .trust-strip {
+      background: var(--off-white);
+      padding: 2.5rem 0;
+    }
+    .trust-strip-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+    }
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+    }
+    .trust-icon {
+      font-size: 1.6rem;
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: var(--shadow-sm);
+    }
+    .trust-item h4 {
+      color: var(--royal-purple);
+      font-size: 0.9rem;
+      margin-bottom: 0.15rem;
+    }
+    .trust-item p {
+      color: #6b5c7a;
+      font-size: 0.75rem;
+      line-height: 1.4;
+    }
+    @media (max-width: 900px) {
+      .trust-strip-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .trust-strip-grid { grid-template-columns: 1fr; }
+    }
+
+    /* CATEGORIES */
     .category-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
     .category-card {
       position: relative;
       height: 380px;
-      border-radius: 4px;
+      border-radius: var(--radius-md);
       overflow: hidden;
       border: 1px solid var(--border-gold);
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
     }
+    .category-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
     .category-card img { width: 100%; height: 100%; object-fit: cover; transition: var(--transition); }
     .category-card:hover img { transform: scale(1.05); }
     .category-overlay {
@@ -283,9 +371,10 @@
       flex-wrap: wrap;
       gap: 1rem;
       background: var(--bg-card);
-      padding: 1rem;
-      border-radius: 4px;
+      padding: 1rem 1.2rem;
+      border-radius: var(--radius-md);
       border: 1px solid var(--border-gold);
+      box-shadow: var(--shadow-sm);
     }
     .filter-group { display: flex; gap: 0.8rem; flex-wrap: wrap; }
     .filter-select {
@@ -293,19 +382,20 @@
       color: var(--text-main);
       border: 1px solid var(--border-gold);
       padding: 0.5rem 1rem;
-      border-radius: 2px;
+      border-radius: var(--radius-pill);
       font-family: var(--font-sans);
     }
     .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2rem; }
     .product-card {
       background: var(--bg-card);
       border: 1px solid var(--border-gold);
-      border-radius: 4px;
+      border-radius: var(--radius-md);
       overflow: hidden;
       transition: var(--transition);
       position: relative;
+      box-shadow: var(--shadow-sm);
     }
-    .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+    .product-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-md); }
     .product-badge {
       position: absolute;
       top: 10px; left: 10px;
@@ -313,8 +403,8 @@
       color: #000;
       font-weight: 700;
       font-size: 0.65rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: 2px;
+      padding: 0.25rem 0.7rem;
+      border-radius: var(--radius-pill);
       z-index: 2;
       text-transform: uppercase;
     }
@@ -353,8 +443,9 @@
       background: var(--bg-card);
       border: 1px solid var(--border-gold);
       padding: 2rem;
-      border-radius: 4px;
+      border-radius: var(--radius-md);
       margin: 0 1rem;
+      box-shadow: var(--shadow-sm);
     }
     .newsletter-section {
       background: var(--royal-purple);
@@ -450,7 +541,7 @@
       .brand { font-size: 1.05rem; }
       .logo-text { font-size: 1.05rem; letter-spacing: 1px; }
       .logo-img { height: 28px; }
-      .brand-address { display: none; }
+      .brand-address-trigger { display: none; }
       section { padding: 3rem 0 !important; }
       h2 { font-size: 1.6rem; word-wrap: break-word; overflow-wrap: break-word; }
       .product-info { padding: 0.9rem; }
@@ -664,8 +755,12 @@
           onerror="this.style.display='none'">
         <span class="brand-text-group">
           <span class="logo-text">ENITOSIN STORE</span>
-          <span class="brand-address">119 Walefamutimi Street, Aboru, Lagos</span>
+          <button type="button" class="brand-address-trigger" onclick="event.preventDefault(); toggleStoreInfo()">306 Old Abeokuta Express Way ▾</button>
         </span>
+        <div class="store-info-panel" id="storeInfoPanel">
+          <img src="enitosin logo (2).jpeg" alt="Enitosin Store Logo" onerror="this.style.display='none'">
+          <div class="store-info-address">306 Old Abeokuta Express Way,<br>Opposite Ile Epo Market</div>
+        </div>
       </a>
     
      
@@ -724,6 +819,40 @@
         <div class="hero-cta">
           <a href="#shop" class="gold-btn">Shop Now</a>
           <a href="#new" class="outline-btn">Explore Collection</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST STRIP -->
+  <section class="trust-strip">
+    <div class="container trust-strip-grid">
+      <div class="trust-item">
+        <span class="trust-icon">🚚</span>
+        <div>
+          <h4>Fast Lagos Delivery</h4>
+          <p>Quick, reliable delivery across Lagos and beyond</p>
+        </div>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">✔</span>
+        <div>
+          <h4>Authentic Products</h4>
+          <p>Every piece handpicked and quality-checked</p>
+        </div>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">🔒</span>
+        <div>
+          <h4>Secure Checkout</h4>
+          <p>Your payment details are always protected</p>
+        </div>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">↩</span>
+        <div>
+          <h4>Easy Returns</h4>
+          <p>Not satisfied? We make it right</p>
         </div>
       </div>
     </div>
@@ -1065,6 +1194,10 @@
       document.getElementById('headerSearchPanel').classList.toggle('open');
     }
 
+    function toggleStoreInfo() {
+      document.getElementById('storeInfoPanel').classList.toggle('open');
+    }
+
     function runHeaderSearch() {
       const cat = document.getElementById('headerSearchCategory').value;
       const query = document.getElementById('headerSearchInput').value;
@@ -1084,6 +1217,11 @@
       const wrapper = document.querySelector('.header-search');
       if (panel && panel.classList.contains('open') && wrapper && !wrapper.contains(e.target)) {
         panel.classList.remove('open');
+      }
+      const infoPanel = document.getElementById('storeInfoPanel');
+      const brand = document.querySelector('.brand');
+      if (infoPanel && infoPanel.classList.contains('open') && brand && !brand.contains(e.target)) {
+        infoPanel.classList.remove('open');
       }
     });
 
