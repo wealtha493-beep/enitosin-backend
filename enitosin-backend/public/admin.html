@@ -832,7 +832,7 @@
         tbody.innerHTML += `
           <tr>
             <td>#${escapeHTML(o.id)}</td>
-            <td>${escapeHTML(o.customer.name)}<br><span style="color:var(--text-muted); font-size:0.75rem;">${escapeHTML(o.customer.email)}</span></td>
+            <td>${escapeHTML(o.customer.name)}<br><span style="color:var(--text-muted); font-size:0.75rem;">${escapeHTML(o.customer.email)}</span>${o.customer.phone ? `<br><span style="color:var(--text-muted); font-size:0.75rem;">${escapeHTML(o.customer.phone)}</span>` : ''}</td>
             <td>${escapeHTML(itemsSummary)}</td>
             <td>₦${Number(o.total).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td><span class="status-badge ${o.paymentStatus === 'Paid' ? 'in-stock' : 'rejected'}">${escapeHTML(o.paymentStatus || 'Unpaid')}</span></td>

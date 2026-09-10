@@ -412,15 +412,16 @@ app.post('/api/orders', async (req, res) => {
     const { customer, items, orderType } = req.body || {};
     const name = String(customer?.name || '').trim();
     const email = String(customer?.email || '').trim().toLowerCase();
+    const phone = String(customer?.phone || '').trim();
     const address = String(customer?.address || '').trim();
 
-    if (!name || !email || !address) {
-      return res.status(400).json({ error: 'Customer name, email and address are required.' });
+    if (!name || !email || !phone || !address) {
+      return res.status(400).json({ error: 'Customer name, email, phone number and address are required.' });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please provide a valid email address.' });
 
     const { normalizedItems, total } = await validateAndPriceItems(items);
-    const newOrder = await createOrderRecord({ customer: { name, email, address }, normalizedItems, total, orderType });
+    const newOrder = await createOrderRecord({ customer: { name, email, phone, address }, normalizedItems, total, orderType });
 
     res.status(201).json(newOrder);
   } catch (err) {
@@ -439,11 +440,12 @@ app.post('/api/payments/initialize', async (req, res) => {
     const { customer, items, orderType } = req.body || {};
     const name = String(customer?.name || '').trim();
     const email = String(customer?.email || '').trim().toLowerCase();
+    const phone = String(customer?.phone || '').trim();
     const address = String(customer?.address || '').trim();
     const resolvedOrderType = orderType === 'Pickup' ? 'Pickup' : 'Delivery';
 
-    if (!name || !email || !address) {
-      return res.status(400).json({ error: 'Customer name, email and address are required.' });
+    if (!name || !email || !phone || !address) {
+      return res.status(400).json({ error: 'Customer name, email, phone number and address are required.' });
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: 'Please provide a valid email address.' });
@@ -465,7 +467,7 @@ app.post('/api/payments/initialize', async (req, res) => {
         currency: 'NGN',
         callback_url: `${origin}/index.html`,
         metadata: {
-          customer: { name, email, address },
+          customer: { name, email, phone, address },
           items: normalizedItems,
           orderType: resolvedOrderType,
         },
@@ -506,7 +508,7 @@ async function fulfillPaidOrder(reference, metadata) {
   const { normalizedItems, total } = await validateAndPriceItems(items.map(i => ({ id: i.id, qty: i.qty })));
 
   return createOrderRecord({
-    customer: { name: customer.name, email: customer.email, address: customer.address },
+    customer: { name: customer.name, email: customer.email, phone: customer.phone, address: customer.address },
     normalizedItems,
     total,
     paymentStatus: 'Paid',

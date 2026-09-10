@@ -473,6 +473,44 @@
       border-radius: 2px;
     }
 
+    /* ABOUT */
+    .about-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+    .about-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-md);
+      padding: 1.6rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .about-block h3 { font-size: 1.05rem; margin-bottom: 0.6rem; }
+    .about-block p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
+
+    .about-logo-flourish {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 2.5rem;
+      padding: 1rem 0;
+    }
+    .about-logo-mark {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      border-radius: 50%;
+      border: 1px solid var(--border-gold);
+      background: var(--bg-card);
+      padding: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+    /* the two marks lean opposite ways, like a mirrored pair */
+    .about-logo-left { transform: rotate(-12deg); }
+    .about-logo-right { transform: rotate(12deg); }
+
     /* FOOTER */
     footer { background: #050208; border-top: 1px solid var(--border-gold); padding: 4rem 0 2rem; font-size: 0.85rem; color: var(--text-muted); }
     .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2.5rem; margin-bottom: 3rem; }
@@ -969,6 +1007,36 @@
     </div>
   </section>
 
+  <!-- ABOUT -->
+  <section id="about" class="section-padding">
+    <div class="container">
+      <div class="section-title">
+        <h2 class="gold-text">About Enitosin Store</h2>
+        <p>Where luxury meets everyday style.</p>
+      </div>
+
+      <div class="about-grid">
+        <div class="about-block">
+          <h3 class="gold-text">Where To Find Us</h3>
+          <p>306 Old Abeokuta Express Way,<br>Opposite Ile Epo Market, Lagos.</p>
+        </div>
+        <div class="about-block">
+          <h3 class="gold-text">What We Offer</h3>
+          <p>Handpicked, authentic footwear and bags for every part of your day — from the office to school runs to weekend travel. Every product listed is quality-checked before it reaches you.</p>
+        </div>
+        <div class="about-block">
+          <h3 class="gold-text">Products We Sell</h3>
+          <p>Shoes: Corporate Shoes, Canvas/Palm Shoes, Crocs, School Sandals, Slippers.<br>Bags: Fashion Bags, School Bags, Traveling Bags.</p>
+        </div>
+      </div>
+
+      <div class="about-logo-flourish">
+        <img src="enitosin logo (2).jpeg" alt="Enitosin Store" class="about-logo-mark about-logo-left" onerror="this.style.display='none'">
+        <img src="enitosin logo (2).jpeg" alt="Enitosin Store" class="about-logo-mark about-logo-right" onerror="this.style.display='none'">
+      </div>
+    </div>
+  </section>
+
   <!-- FOOTER -->
   <footer>
     <div class="container">
@@ -989,7 +1057,7 @@
         <div class="footer-col">
           <h4>The Brand</h4>
           <ul>
-            <li><a href="#">About Enitosin</a></li>
+            <li><a href="#about">About Enitosin</a></li>
             <li><a href="#">Craftsmanship</a></li>
             <li><a href="#">Careers</a></li>
             <li><a href="#">Privacy Policy</a></li>
@@ -1044,6 +1112,10 @@
             <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem;">Email Address</label>
             <input type="email" id="checkoutEmail" required style="width:100%; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
           </div>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem;">Phone Number</label>
+          <input type="tel" id="checkoutPhone" required placeholder="e.g. 08012345678" style="width:100%; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
         </div>
         <div style="margin-bottom: 1rem;">
           <label style="display:block; font-size:0.8rem; margin-bottom:0.4rem;">How would you like to get your order?</label>
@@ -1388,6 +1460,7 @@
 
       const name = document.getElementById('checkoutName').value.trim();
       const email = document.getElementById('checkoutEmail').value.trim();
+      const phone = document.getElementById('checkoutPhone').value.trim();
       const orderType = document.querySelector('input[name="orderType"]:checked')?.value || 'Delivery';
       const address = orderType === 'Pickup'
         ? STORE_PICKUP_ADDRESS
@@ -1399,7 +1472,7 @@
       }
 
       const payload = {
-        customer: { name, email, address },
+        customer: { name, email, phone, address },
         items: cart.map(i => ({ id: i.id, qty: i.qty })),
         orderType,
       };
