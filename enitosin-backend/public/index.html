@@ -1304,9 +1304,9 @@
         const matchesSub = !subValue || p.subcategory === subValue;
         const matchesSearch = p.name.toLowerCase().includes(query) || p.desc.toLowerCase().includes(query);
         let matchesPrice = true;
-        if (price === 'under200') matchesPrice = p.price < 50000;
-        else if (price === '200to500') matchesPrice = p.price >= 50000 && p.price <= 150000;
-        else if (price === 'over500') matchesPrice = p.price > 150000;
+        if (price === 'under200') matchesPrice = p.price < 3000;
+        else if (price === '200to500') matchesPrice = p.price >= 5000 && p.price <= 50000;
+        else if (price === 'over500') matchesPrice = p.price > 20000;
 
         return matchesCat && matchesSub && matchesSearch && matchesPrice;
       });
