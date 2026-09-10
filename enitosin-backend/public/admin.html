@@ -454,6 +454,7 @@
               <th>Items</th>
               <th>Total Amount</th>
               <th>Payment</th>
+              <th>Fulfillment</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -835,6 +836,7 @@
             <td>${escapeHTML(itemsSummary)}</td>
             <td>₦${Number(o.total).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td><span class="status-badge ${o.paymentStatus === 'Paid' ? 'in-stock' : 'rejected'}">${escapeHTML(o.paymentStatus || 'Unpaid')}</span></td>
+            <td>${o.orderType === 'Pickup' ? '🏬 Pick Up' : '🚚 Delivery'}</td>
             <td><span class="status-badge ${escapeHTML(statusClass)}">${escapeHTML(o.status)}</span></td>
             <td>
               <button class="order-action-btn accept" ${o.status === 'Accepted' ? 'disabled' : ''} onclick="updateOrderStatus('${escapeHTML(o.id)}','Accepted')">Accept</button>

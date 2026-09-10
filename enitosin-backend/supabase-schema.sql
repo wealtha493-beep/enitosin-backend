@@ -27,6 +27,7 @@ create table if not exists public.orders (
   status text not null default 'Pending',
   payment_status text not null default 'Unpaid',
   payment_reference text,
+  order_type text not null default 'Delivery',
   created_at timestamptz not null default now()
 );
 
@@ -107,3 +108,4 @@ alter table public.products add column if not exists subcategory text default ''
 alter table public.orders add column if not exists payment_status text not null default 'Unpaid';
 alter table public.orders add column if not exists payment_reference text;
 create unique index if not exists orders_payment_reference_key on public.orders (payment_reference) where payment_reference is not null;
+alter table public.orders add column if not exists order_type text not null default 'Delivery';

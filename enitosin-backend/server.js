@@ -365,7 +365,7 @@ async function validateAndPriceItems(items) {
 // Creates the actual order row in Supabase. Used both by the legacy
 // direct-order endpoint and by the Paystack payment flow once a
 // payment has been confirmed as successful.
-async function createOrderRecord({ customer, normalizedItems, total, paymentStatus, paymentReference }) {
+async function createOrderRecord({ customer, normalizedItems, total, paymentStatus, paymentReference, orderType }) {
   const { name, email, address } = customer;
   const orderId = `EN-${Date.now().toString().slice(-8)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
   const createdAt = new Date().toISOString();
@@ -377,6 +377,7 @@ async function createOrderRecord({ customer, normalizedItems, total, paymentStat
     status: 'Pending',
     payment_status: paymentStatus || 'Unpaid',
     payment_reference: paymentReference || null,
+    order_type: orderType === 'Pickup' ? 'Pickup' : 'Delivery',
     created_at: createdAt,
   };
 
@@ -390,6 +391,7 @@ async function createOrderRecord({ customer, normalizedItems, total, paymentStat
     status: row.status,
     paymentStatus: row.payment_status,
     paymentReference: row.payment_reference,
+    orderType: row.order_type || 'Delivery',
     createdAt: row.created_at,
   };
 
@@ -407,7 +409,7 @@ async function createOrderRecord({ customer, normalizedItems, total, paymentStat
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { customer, items } = req.body || {};
+    const { customer, items, orderType } = req.body || {};
     const name = String(customer?.name || '').trim();
     const email = String(customer?.email || '').trim().toLowerCase();
     const address = String(customer?.address || '').trim();
@@ -418,7 +420,7 @@ app.post('/api/orders', async (req, res) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please provide a valid email address.' });
 
     const { normalizedItems, total } = await validateAndPriceItems(items);
-    const newOrder = await createOrderRecord({ customer: { name, email, address }, normalizedItems, total });
+    const newOrder = await createOrderRecord({ customer: { name, email, address }, normalizedItems, total, orderType });
 
     res.status(201).json(newOrder);
   } catch (err) {
@@ -434,10 +436,11 @@ app.post('/api/payments/initialize', async (req, res) => {
     if (!PAYSTACK_SECRET_KEY) {
       return res.status(503).json({ error: 'Payments are not configured yet. Please contact the store.' });
     }
-    const { customer, items } = req.body || {};
+    const { customer, items, orderType } = req.body || {};
     const name = String(customer?.name || '').trim();
     const email = String(customer?.email || '').trim().toLowerCase();
     const address = String(customer?.address || '').trim();
+    const resolvedOrderType = orderType === 'Pickup' ? 'Pickup' : 'Delivery';
 
     if (!name || !email || !address) {
       return res.status(400).json({ error: 'Customer name, email and address are required.' });
@@ -464,6 +467,7 @@ app.post('/api/payments/initialize', async (req, res) => {
         metadata: {
           customer: { name, email, address },
           items: normalizedItems,
+          orderType: resolvedOrderType,
         },
       }),
     });
@@ -492,6 +496,7 @@ async function fulfillPaidOrder(reference, metadata) {
     return {
       id: row.id, customer: row.customer, items: row.items, total: Number(row.total),
       status: row.status, paymentStatus: row.payment_status, paymentReference: row.payment_reference,
+      orderType: row.order_type || 'Delivery',
       createdAt: row.created_at,
     };
   }
@@ -506,6 +511,7 @@ async function fulfillPaidOrder(reference, metadata) {
     total,
     paymentStatus: 'Paid',
     paymentReference: reference,
+    orderType: metadata?.orderType,
   });
 }
 
@@ -557,6 +563,7 @@ app.get('/api/payments/verify/:reference', async (req, res) => {
         order: {
           id: row.id, customer: row.customer, items: row.items, total: Number(row.total),
           status: row.status, paymentStatus: row.payment_status, paymentReference: row.payment_reference,
+          orderType: row.order_type || 'Delivery',
           createdAt: row.created_at,
         },
       });
@@ -589,6 +596,7 @@ app.get('/api/orders', requireAdmin, async (req, res) => {
       status: row.status,
       paymentStatus: row.payment_status || 'Unpaid',
       paymentReference: row.payment_reference || null,
+      orderType: row.order_type || 'Delivery',
       createdAt: row.created_at,
     })));
   } catch (err) {
