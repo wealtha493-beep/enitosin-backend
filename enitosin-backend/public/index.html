@@ -493,23 +493,45 @@
     .about-logo-flourish {
       display: flex;
       justify-content: center;
+      align-items: flex-end;
+      gap: 3.5rem;
+      padding: 2.5rem 0 1.5rem;
+      flex-wrap: wrap;
+    }
+    .about-photo-card {
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 2.5rem;
-      padding: 1rem 0;
     }
     .about-logo-mark {
-      width: 56px;
-      height: 56px;
-      object-fit: contain;
-      border-radius: 50%;
-      border: 1px solid var(--border-gold);
-      background: var(--bg-card);
-      padding: 6px;
-      box-shadow: var(--shadow-sm);
+      width: 190px;
+      height: 190px;
+      object-fit: cover;
+      border-radius: var(--radius-md);
+      border: 6px solid var(--off-white);
+      background: var(--off-white);
+      box-shadow: var(--shadow-md);
+      transition: var(--transition);
     }
-    /* the two marks lean opposite ways, like a mirrored pair */
-    .about-logo-left { transform: rotate(-12deg); }
-    .about-logo-right { transform: rotate(12deg); }
+    .about-photo-card:hover .about-logo-mark {
+      transform: scale(1.04) rotate(0deg) !important;
+      box-shadow: var(--shadow-lg);
+    }
+    .about-photo-caption {
+      margin-top: 0.9rem;
+      font-size: 0.75rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    /* the two photos lean opposite ways, like a scattered photo pair */
+    .about-logo-left { transform: rotate(-8deg); }
+    .about-logo-right { transform: rotate(8deg); }
+
+    @media (max-width: 600px) {
+      .about-logo-mark { width: 140px; height: 140px; }
+      .about-logo-flourish { gap: 2rem; }
+    }
 
     /* FOOTER */
     footer { background: #050208; border-top: 1px solid var(--border-gold); padding: 4rem 0 2rem; font-size: 0.85rem; color: var(--text-muted); }
@@ -949,9 +971,9 @@
           </select>
           <select id="priceFilter" class="filter-select" onchange="filterProducts()">
             <option value="all">Price Range</option>
-            <option value="under200">Under ₦50,000</option>
-            <option value="200to500">₦50,000 - ₦150,000</option>
-            <option value="over500">Over ₦150,000</option>
+            <option value="under200">Under ₦3,000</option>
+            <option value="200to500">₦5,000 - ₦50,000</option>
+            <option value="over500">Over ₦20,000</option>
           </select>
         </div>
         <div>
@@ -1031,8 +1053,14 @@
       </div>
 
       <div class="about-logo-flourish">
-        <img src="shoes.jfif" alt="Enitosin Store" class="about-logo-mark about-logo-left" onerror="this.style.display='none'">
-        <img src="bag.jfif" alt="Enitosin Store" class="about-logo-mark about-logo-right" onerror="this.style.display='none'">
+        <div class="about-photo-card">
+          <img src="shoes.jfif" alt="Shoes at Enitosin Store" class="about-logo-mark about-logo-left" onerror="this.style.display='none'">
+          <span class="about-photo-caption">Shoes</span>
+        </div>
+        <div class="about-photo-card">
+          <img src="bag.jfif" alt="Bags at Enitosin Store" class="about-logo-mark about-logo-right" onerror="this.style.display='none'">
+          <span class="about-photo-caption">Bags</span>
+        </div>
       </div>
     </div>
   </section>
