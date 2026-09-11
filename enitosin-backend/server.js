@@ -203,6 +203,66 @@ async function sendOrderNotificationEmail(order) {
   }
 }
 
+// Emails the CUSTOMER (not the admin) when their order is Accepted or
+// Rejected, so they aren't left wondering what happened after they paid.
+async function sendOrderStatusEmail(order, status) {
+  if (!resendClient) return;
+  if (status !== 'Accepted' && status !== 'Rejected') return;
+
+  try {
+    const recipient = String(order.customer?.email || '').trim();
+    if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) return;
+
+    const money = n => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const isAccepted = status === 'Accepted';
+    const subject = isAccepted
+      ? `Your ENITOSIN order ${order.id} has been accepted`
+      : `Update on your ENITOSIN order ${order.id}`;
+
+    const introText = isAccepted
+      ? `Good news — your order has been accepted and is now being prepared${order.orderType === 'Pickup' ? ' for pickup' : ' for delivery'}.`
+      : `We're sorry — your order could not be accepted. If you were charged, our team will process a refund shortly. Please reach out if you have any questions.`;
+
+    const itemsList = (order.items || [])
+      .map(item => `  • ${item.name}  x${item.qty}  —  ${money(item.price * item.qty)}`)
+      .join('\n');
+
+    const textBody = [
+      introText, '',
+      `Order: ${order.id}`,
+      `Status: ${status}`, '',
+      'Items:', itemsList, '',
+      `Total: ${money(order.total)}`,
+    ].join('\n');
+
+    const itemsHtml = (order.items || []).map(item =>
+      `<tr><td style="padding:4px 8px;">${item.name}</td><td style="padding:4px 8px;">x${item.qty}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
+    ).join('');
+
+    const badgeColor = isAccepted ? '#2e7d32' : '#c62828';
+    const htmlBody = `<div style="font-family:sans-serif;color:#222;">
+      <h2 style="color:#aa7c11;">ENITOSIN STORE</h2>
+      <p>${introText}</p>
+      <p><strong>Order:</strong> ${order.id}<br><strong>Status:</strong> <span style="color:${badgeColor}; font-weight:bold;">${status}</span></p>
+      <table style="border-collapse:collapse;margin:12px 0;"><thead><tr><th style="text-align:left;padding:4px 8px;">Item</th><th style="text-align:left;padding:4px 8px;">Qty</th><th style="text-align:left;padding:4px 8px;">Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+      <p><strong>Total: ${money(order.total)}</strong></p>
+    </div>`;
+
+    const { error } = await resendClient.emails.send({
+      from: RESEND_FROM_EMAIL,
+      to: recipient,
+      subject,
+      text: textBody,
+      html: htmlBody,
+    });
+    if (error) throw new Error(error.message || 'Unknown Resend error');
+    await logActivity('email_sent', `Order ${status.toLowerCase()} notice emailed to ${recipient} for ${order.id}`, { orderId: order.id });
+  } catch (err) {
+    console.error('Failed to send order status email:', err.message);
+    await logActivity('email_failed', `Failed to email order ${status.toLowerCase()} notice for ${order.id}: ${err.message}`, { orderId: order.id });
+  }
+}
+
 async function healthHandler(req, res) {
   try {
     await dbList('products', { select: 'id', limit: '1' });
@@ -613,8 +673,18 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
     if (!allowedStatuses.includes(status)) return res.status(400).json({ error: 'Invalid order status.' });
     const rows = await dbUpdate('orders', { id: `eq.${encodeURIComponent(req.params.id)}` }, { status });
     if (!rows.length) return res.status(404).json({ error: 'Order not found.' });
-    await logActivity('order_status', `Order ${rows[0].id} marked ${status}`, { orderId: rows[0].id });
-    res.json({ ...rows[0], total: Number(rows[0].total), createdAt: rows[0].created_at });
+    const row = rows[0];
+    await logActivity('order_status', `Order ${row.id} marked ${status}`, { orderId: row.id });
+
+    sendOrderStatusEmail({
+      id: row.id,
+      customer: row.customer,
+      items: row.items,
+      total: Number(row.total),
+      orderType: row.order_type,
+    }, status).catch(console.error);
+
+    res.json({ ...row, total: Number(row.total), createdAt: row.created_at });
   } catch (err) {
     handleDbError(res, err, 'Could not update order status.');
   }
