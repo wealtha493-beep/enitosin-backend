@@ -1,0 +1,14 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    - cron: '*/12 * * * *'   # Runs every 12 minutes
+  workflow_dispatch:         # Allows manual run
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render App
+        run: |
+          run: curl -fsS --max-time 60 https://enitosin-store.onrender.com/ > /dev/null
