@@ -315,6 +315,7 @@ function normalizeProduct(row) {
     desc: row.description || '',
     image: row.image || '',
     stock: row.stock || 'In Stock',
+    sizes: Array.isArray(row.sizes) ? row.sizes : [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -350,6 +351,10 @@ function productPayload(body, existing = {}) {
     description: body.desc === undefined ? (existing.description || '') : String(body.desc || '').trim(),
     image,
     stock: body.stock === undefined ? (existing.stock || 'In Stock') : (String(body.stock || '').trim() || 'In Stock'),
+    sizes: body.sizes === undefined
+      ? (Array.isArray(existing.sizes) ? existing.sizes : [])
+      : [...new Set((Array.isArray(body.sizes) ? body.sizes : String(body.sizes || '').split(','))
+          .map(size => String(size).trim()).filter(Boolean))],
   };
 }
 

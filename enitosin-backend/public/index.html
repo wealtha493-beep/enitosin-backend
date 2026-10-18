@@ -1352,15 +1352,25 @@
 
     /* CART MANAGEMENT */
     function addToCart(id) {
-      const prod = products.find(p => p.id === id);
-      const existing = cart.find(item => item.id === id);
-      if(existing) {
-        existing.qty += 1;
-      } else {
-        cart.push({...prod, qty: 1});
+      const prod = products.find(p => String(p.id) === String(id));
+      if (!prod) return;
+      let selectedSize = '';
+      const availableSizes = Array.isArray(prod.sizes) ? prod.sizes : [];
+      if (availableSizes.length) {
+        const choice = window.prompt(`Choose a size for ${prod.name}:\\nAvailable sizes: ${availableSizes.join(', ')}\\n\\nEnter one size exactly as shown:`);
+        if (choice === null) return;
+        selectedSize = choice.trim();
+        if (!availableSizes.some(size => String(size).toLowerCase() === selectedSize.toLowerCase())) {
+          showToast('Please choose one of the available sizes.');
+          return;
+        }
+        selectedSize = availableSizes.find(size => String(size).toLowerCase() === selectedSize.toLowerCase());
       }
+      const existing = cart.find(item => String(item.id) === String(id) && (item.size || '') === selectedSize);
+      if (existing) existing.qty += 1;
+      else cart.push({...prod, size: selectedSize, qty: 1});
       saveCart();
-      showToast(`${prod.name} added to your bag.`);
+      showToast(`${prod.name}${selectedSize ? ` (Size ${selectedSize})` : ''} added to your bag.`);
     }
 
     function updateQty(id, delta) {
@@ -1391,7 +1401,7 @@
           <div class="cart-item">
             <img src="${item.image}" alt="${item.name}">
             <div style="flex:1;">
-              <h4 style="font-size:0.9rem;">${escapeHTML(item.name)}</h4>
+              <h4 style="font-size:0.9rem;">${escapeHTML(item.name)}</h4>${item.size ? `<p style="font-size:0.75rem;color:var(--text-muted);">Size: ${escapeHTML(item.size)}</p>` : ''}
               <p style="color:var(--gold-primary); font-size:0.85rem;">₦${Number(item.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.3rem;">
                 <button onclick="updateQty(${item.id}, -1)" style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; width:20px; height:20px;">-</button>
