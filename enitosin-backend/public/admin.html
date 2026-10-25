@@ -367,6 +367,7 @@
       <li class="active"><a href="#" onclick="return goToSection(event, 'top', this)">Dashboard</a></li>
       <li><a href="#" onclick="return goToSection(event, 'productsSection', this)">Products</a></li>
       <li><a href="#" onclick="return goToSection(event, 'ordersSection', this)">Orders</a></li>
+      <li><a href="#" onclick="return goToSection(event, 'reviewsSection', this)">Reviews</a></li>
       <li><a href="#" onclick="return goToSection(event, 'top', this)">Customers</a></li>
       <li><a href="#" onclick="return goToSection(event, 'productsSection', this)">Inventory</a></li>
       <li><a href="#settingsSection" onclick="return goToSection(event, 'settingsSection', this)">Settings</a></li>
@@ -462,6 +463,23 @@
           <tbody id="adminOrdersTable">
             <!-- Populated live from the storefront checkout via /api/orders -->
           </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CUSTOMER REVIEWS MODERATION -->
+    <div class="dashboard-section" id="reviewsSection">
+      <div class="section-header">
+        <h3>Customer Reviews</h3>
+        <button class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="loadAdminReviews()">Refresh</button>
+      </div>
+      <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">New reviews stay hidden until you approve them. While none are approved, the storefront shows "Coming soon".</p>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr><th>Customer</th><th>Rating</th><th>Review</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="adminReviewsTable"></tbody>
         </table>
       </div>
     </div>
@@ -871,6 +889,52 @@
       }
     }
 
+    // ---------- reviews ----------
+    async function loadAdminReviews() {
+      const res = await fetch(`${API_BASE}/admin/reviews`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const reviews = await res.json();
+      const tbody = document.getElementById('adminReviewsTable');
+      if (!reviews.length) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No reviews yet — they appear here after customers buy and submit one.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = reviews.map(r => `
+        <tr>
+          <td>${escapeHTML(r.name)}<br><span style="color:var(--text-muted); font-size:0.75rem;">#${escapeHTML(r.orderId)}</span></td>
+          <td style="color:var(--gold-primary); white-space:nowrap;">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
+          <td style="max-width:320px;">${escapeHTML(r.comment)}</td>
+          <td><span class="status-badge ${r.approved ? 'in-stock' : 'low-stock'}">${r.approved ? 'Visible' : 'Pending'}</span></td>
+          <td>
+            <button class="order-action-btn accept" onclick="setReviewApproval(${Number(r.id)}, ${!r.approved})">${r.approved ? 'Hide' : 'Approve'}</button>
+            <button class="order-action-btn reject" onclick="deleteReview(${Number(r.id)})">Delete</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    async function setReviewApproval(id, approved) {
+      try {
+        const res = await fetch(`${API_BASE}/reviews/${id}/approve`, {
+          method: 'PUT', headers: authHeaders(), body: JSON.stringify({ approved }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not update review.');
+        await loadAdminReviews();
+        await loadLogs();
+      } catch (err) { alert(err.message); }
+    }
+
+    async function deleteReview(id) {
+      if (!confirm('Delete this review permanently?')) return;
+      try {
+        const res = await fetch(`${API_BASE}/reviews/${id}`, { method: 'DELETE', headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not delete review.');
+        await loadAdminReviews();
+        await loadLogs();
+      } catch (err) { alert(err.message); }
+    }
+
     // ---------- stats ----------
     async function loadStats() {
       const res = await fetch(`${API_BASE}/stats`, { headers: authHeaders() });
@@ -961,6 +1025,7 @@
       await loadProducts();
       await loadStats();
       await loadOrders();
+      await loadAdminReviews();
       await loadLogs();
       await loadSettings();
     }

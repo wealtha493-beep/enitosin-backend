@@ -696,6 +696,106 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
 });
 
 // =====================================================================
+// REVIEWS
+// Only customers with a real, paid order can leave a review, and each
+// order can review only once. Reviews wait for admin approval.
+// =====================================================================
+
+// Public: approved reviews only. An empty list makes the storefront show
+// its default "Coming soon" card.
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const rows = await dbList('reviews', {
+      select: 'id,name,rating,comment,created_at',
+      approved: 'eq.true',
+      order: 'created_at.desc',
+      limit: '12',
+    });
+    res.json(rows.map(r => ({
+      id: r.id, name: r.name, rating: r.rating, comment: r.comment, createdAt: r.created_at,
+    })));
+  } catch (err) {
+    handleDbError(res, err, 'Could not load reviews.');
+  }
+});
+
+// Customer submits a review after paying. The Paystack payment reference
+// (random, known only to the buyer) proves they really purchased.
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const reference = String(req.body?.reference || '').trim();
+    const rating = Number(req.body?.rating);
+    const comment = String(req.body?.comment || '').trim();
+
+    if (!reference) return res.status(400).json({ error: 'Payment reference is required.' });
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Please choose a star rating from 1 to 5.' });
+    }
+    if (comment.length < 3 || comment.length > 500) {
+      return res.status(400).json({ error: 'Please write a review between 3 and 500 characters.' });
+    }
+
+    const orders = await dbList('orders', {
+      payment_reference: `eq.${encodeURIComponent(reference)}`,
+      select: 'id,customer,payment_status',
+    });
+    if (!orders.length || orders[0].payment_status !== 'Paid') {
+      return res.status(403).json({ error: 'Only customers with a paid order can leave a review.' });
+    }
+    const order = orders[0];
+
+    const already = await dbList('reviews', { order_id: `eq.${encodeURIComponent(order.id)}`, select: 'id' });
+    if (already.length) return res.status(409).json({ error: 'You have already reviewed this order. Thank you!' });
+
+    // Show "Firstname L." publicly instead of the full name (privacy).
+    const parts = String(order.customer?.name || 'Customer').trim().split(/\s+/);
+    const displayName = parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.` : parts[0];
+
+    await dbInsert('reviews', [{ order_id: order.id, name: displayName, rating, comment, approved: false }]);
+    await logActivity('review', `New ${rating}-star review from ${displayName} (awaiting approval)`, { orderId: order.id });
+    res.status(201).json({ success: true });
+  } catch (err) {
+    handleDbError(res, err, 'Could not save your review.');
+  }
+});
+
+// Admin: see every review (approved or not) and moderate them.
+app.get('/api/admin/reviews', requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbList('reviews', { select: '*', order: 'created_at.desc' });
+    res.json(rows.map(r => ({
+      id: r.id, orderId: r.order_id, name: r.name, rating: r.rating,
+      comment: r.comment, approved: r.approved, createdAt: r.created_at,
+    })));
+  } catch (err) {
+    handleDbError(res, err, 'Could not load reviews.');
+  }
+});
+
+app.put('/api/reviews/:id/approve', requireAdmin, async (req, res) => {
+  try {
+    const approved = Boolean(req.body?.approved);
+    const rows = await dbUpdate('reviews', { id: `eq.${encodeURIComponent(req.params.id)}` }, { approved });
+    if (!rows.length) return res.status(404).json({ error: 'Review not found.' });
+    await logActivity('review_moderation', `Review ${rows[0].id} ${approved ? 'approved' : 'hidden'}`, { reviewId: rows[0].id });
+    res.json({ success: true, approved });
+  } catch (err) {
+    handleDbError(res, err, 'Could not update review.');
+  }
+});
+
+app.delete('/api/reviews/:id', requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbDelete('reviews', { id: `eq.${encodeURIComponent(req.params.id)}` });
+    if (!rows.length) return res.status(404).json({ error: 'Review not found.' });
+    await logActivity('review_moderation', `Review ${rows[0].id} deleted`, { reviewId: rows[0].id });
+    res.json({ success: true });
+  } catch (err) {
+    handleDbError(res, err, 'Could not delete review.');
+  }
+});
+
+// =====================================================================
 // SETTINGS
 // =====================================================================
 app.get('/api/settings', requireAdmin, async (req, res) => {

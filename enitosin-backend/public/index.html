@@ -565,6 +565,23 @@
     .cart-item img { width: 60px; height: 60px; object-fit: cover; border-radius: 2px; }
     .cart-footer { border-top: 1px solid var(--border-gold); padding-top: 1rem; }
 
+    /* REVIEW STARS, COMING-SOON CARD & REVIEW POPUP */
+    .review-stars { color: var(--gold-primary); letter-spacing: 3px; font-size: 1rem; margin-bottom: 0.8rem; }
+    .review-card.coming-soon { text-align: center; grid-column: 1 / -1; padding: 3rem 2rem; }
+    .review-card.coming-soon .review-stars { opacity: 0.45; font-size: 1.4rem; }
+    .coming-soon-title { font-family: var(--font-serif); font-size: 1.8rem; color: var(--gold-light); letter-spacing: 2px; margin-bottom: 0.6rem; }
+    .star-picker { display: flex; justify-content: center; gap: 0.4rem; margin: 1rem 0 1.2rem; }
+    .star-picker button {
+      background: none; border: none; cursor: pointer; font-size: 2.2rem; line-height: 1;
+      color: rgba(212,175,55,0.3); transition: transform .2s ease, color .2s ease;
+    }
+    .star-picker button.on { color: var(--gold-primary); }
+    .star-picker button:hover { transform: scale(1.15); }
+    #reviewText {
+      width: 100%; min-height: 110px; padding: 0.8rem; resize: vertical; font-family: var(--font-sans);
+      background: var(--bg-dark); border: 1px solid var(--border-gold); color: #fff; border-radius: var(--radius-sm);
+    }
+
     /* MODAL */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 3000;
@@ -1005,14 +1022,13 @@
       <div class="section-title">
         <h2 class="gold-text">Client Experiences</h2>
       </div>
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
-        <div class="review-card">
-          <p style="font-style: italic; color: var(--text-muted);">"Enitosin shoes are in a league of their own. The handcrafted loafers I bought fit impeccably and turn heads at every business gala."</p>
-          <p style="margin-top: 1rem; font-weight:600; color:var(--gold-primary);">- Alexander V., London</p>
-        </div>
-        <div class="review-card">
-          <p style="font-style: italic; color: var(--text-muted);">"The leather bag quality easily rivals top Paris fashion houses. Delivery was swift, and the gold packaging felt like pure royalty."</p>
-          <p style="margin-top: 1rem; font-weight:600; color:var(--gold-primary);">- Sophia M., New York</p>
+      <!-- Shows "Coming soon" by default. loadReviews() swaps in real reviews
+           only once the admin has approved at least one. -->
+      <div id="reviewsGrid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+        <div class="review-card coming-soon">
+          <div class="review-stars">☆ ☆ ☆ ☆ ☆</div>
+          <h3 class="coming-soon-title">Coming Soon</h3>
+          <p style="color: var(--text-muted);">Client experiences will appear here once our first customers share their thoughts.</p>
         </div>
       </div>
     </div>
@@ -1168,6 +1184,23 @@
         <div style="border-top:1px solid var(--border-gold); padding-top:1rem; margin-top:1rem; text-align:right;">
           <p style="margin-bottom:1rem; color:var(--text-muted);">Total Due: <span id="checkoutTotal" style="color:var(--gold-primary); font-weight:bold;">₦0.00</span></p>
           <button type="submit" class="gold-btn">Proceed to Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- REVIEW REQUEST POPUP (opens after a confirmed purchase) -->
+  <div class="modal-overlay" id="reviewModal">
+    <div class="modal-content" style="max-width: 480px; text-align: center;">
+      <button class="close-modal" onclick="closeReviewModal()">✕</button>
+      <h2 class="gold-text" style="margin-bottom: 0.4rem;">Thank You For Your Order</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">How was your experience with Enitosin? Your review helps other shoppers.</p>
+      <form onsubmit="submitReview(event)">
+        <div class="star-picker" id="starPicker" role="radiogroup" aria-label="Rating"></div>
+        <textarea id="reviewText" maxlength="500" placeholder="Tell us what you loved..." required></textarea>
+        <div style="display:flex; gap:0.8rem; justify-content:center; margin-top:1.2rem;">
+          <button type="button" class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="closeReviewModal()">Maybe Later</button>
+          <button type="submit" class="gold-btn" id="reviewSubmitBtn">Submit Review</button>
         </div>
       </form>
     </div>
@@ -1559,6 +1592,8 @@
           saveCart();
           localStorage.removeItem('enitosin_pending_reference');
           showToast(`Payment confirmed! Order ${data.order.id} is on its way to processing.`);
+          // ask the buyer for a review a moment after the confirmation toast
+          setTimeout(() => openReviewModal(reference), 1800);
         } else {
           showToast('Payment was not completed. Your cart has been kept for you.');
         }
@@ -1568,6 +1603,76 @@
       }
     }
     document.addEventListener('DOMContentLoaded', checkPaymentReturn);
+
+    // ------------------------------------------------------------------
+    // REVIEWS
+    // The page ships with a "Coming soon" card. If the backend has any
+    // approved reviews we replace it; otherwise it simply stays.
+    // ------------------------------------------------------------------
+    async function loadReviews() {
+      try {
+        const res = await fetch(`${API_BASE}/reviews`);
+        if (!res.ok) return;
+        const reviews = await res.json();
+        if (!Array.isArray(reviews) || !reviews.length) return; // keep "Coming soon"
+        document.getElementById('reviewsGrid').innerHTML = reviews.map(r => `
+          <div class="review-card reveal is-visible">
+            <div class="review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+            <p style="font-style: italic; color: var(--text-muted);">"${escapeHTML(r.comment)}"</p>
+            <p style="margin-top: 1rem; font-weight:600; color:var(--gold-primary);">- ${escapeHTML(r.name)}</p>
+          </div>`).join('');
+      } catch (err) {
+        console.error('Could not load reviews', err); // "Coming soon" stays visible
+      }
+    }
+
+    let reviewReference = null;   // Paystack reference of the order being reviewed
+    let reviewRating = 0;
+
+    function renderStarPicker() {
+      const picker = document.getElementById('starPicker');
+      picker.innerHTML = [1, 2, 3, 4, 5].map(n =>
+        `<button type="button" class="${n <= reviewRating ? 'on' : ''}" onclick="setReviewRating(${n})" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`
+      ).join('');
+    }
+    function setReviewRating(n) { reviewRating = n; renderStarPicker(); }
+
+    function openReviewModal(reference) {
+      reviewReference = reference;
+      reviewRating = 0;
+      document.getElementById('reviewText').value = '';
+      renderStarPicker();
+      document.getElementById('reviewModal').classList.add('active');
+    }
+    function closeReviewModal() { document.getElementById('reviewModal').classList.remove('active'); }
+
+    async function submitReview(e) {
+      e.preventDefault();
+      if (!reviewRating) { showToast('Please tap a star rating first.'); return; }
+      const btn = document.getElementById('reviewSubmitBtn');
+      btn.disabled = true;
+      btn.innerText = 'Sending...';
+      try {
+        const res = await fetch(`${API_BASE}/reviews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reference: reviewReference,
+            rating: reviewRating,
+            comment: document.getElementById('reviewText').value.trim(),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not send your review.');
+        closeReviewModal();
+        showToast('Thank you! Your review will appear once approved.');
+      } catch (err) {
+        showToast(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Submit Review';
+      }
+    }
 
     function handleSubscribe(e) {
       e.preventDefault();
@@ -1584,6 +1689,7 @@
 
     // INIT
     loadProducts();
+    loadReviews();
     updateCartUI();
 
     // ---------- premium motion ----------
