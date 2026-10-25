@@ -11,6 +11,9 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const { Resend } = require('resend');
+const {
+  escapeHtml, safeEqual, createRateLimiter, securityHeaders, isSafeImageUrl, HttpError,
+} = require('./security');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -39,18 +42,42 @@ if (RESEND_API_KEY) resendClient = new Resend(RESEND_API_KEY);
 else console.warn('WARNING: RESEND_API_KEY not set — order email notifications are disabled.');
 
 app.disable('x-powered-by');
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
-app.use(cors());
+
+// Render (and most hosts) put a proxy in front of the app. Trusting exactly
+// one proxy hop makes req.ip the REAL visitor IP (needed for rate limiting)
+// without letting visitors fake it with their own X-Forwarded-For header.
+const TRUST_PROXY = process.env.TRUST_PROXY !== undefined
+  ? Number(process.env.TRUST_PROXY)
+  : (process.env.RENDER ? 1 : false);
+app.set('trust proxy', TRUST_PROXY);
+
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
+app.use(securityHeaders({ hsts: IS_PRODUCTION }));
+
+// The storefront and admin pages are served by this same server, so
+// normal use is same-origin and needs NO CORS at all. Only origins you list
+// in ALLOWED_ORIGINS (comma-separated) may call the API from another site.
+const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(o => o.trim()).filter(Boolean);
+app.use(cors({ origin: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : false }));
+
+// Product routes need a big body (admin uploads photos as base64). Every
+// other route gets a tiny limit so nobody can exhaust memory with huge JSON.
+app.use('/api/products', express.json({ limit: '15mb' }));
 app.use(express.json({
-  limit: '15mb',
+  limit: '100kb',
   // Paystack signs the exact raw request body — keep a copy before it's
   // parsed into an object, so the webhook handler can verify it.
   verify: (req, res, buf) => { req.rawBody = buf; },
 }));
+
+// Rate limiters (per visitor IP)
+const apiLimiter = createRateLimiter({ windowMs: 60_000, max: 300 });
+const checkoutLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 20, message: 'Too many checkout attempts. Please wait a few minutes and try again.' });
+const reviewLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 5, message: 'Too many review attempts. Please try again later.' });
+const verifyLimiter = createRateLimiter({ windowMs: 60_000, max: 30 });
+const adminFailLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10 });
+app.use('/api', apiLimiter.middleware());
 app.use(express.static(require('path').join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------
@@ -118,17 +145,31 @@ async function dbDelete(table, filters) {
 
 function handleDbError(res, err, fallback = 'Database operation failed.') {
   console.error(err);
-  res.status(err.status && err.status >= 400 && err.status < 500 ? err.status : 500)
-    .json({ error: fallback, details: process.env.NODE_ENV === 'production' ? undefined : err.message });
+  // Our own validation errors (HttpError) carry a customer-safe message.
+  // Anything else (Supabase/Paystack internals) gets only the generic text,
+  // so error output can't leak table names, SQL hints or keys.
+  if (err && err.expose) return res.status(err.status || 400).json({ error: err.message });
+  res.status(err && err.status >= 400 && err.status < 500 ? err.status : 500)
+    .json({ error: fallback, details: IS_PRODUCTION ? undefined : err?.message });
 }
 
 // ---------- admin auth ----------
+let lastFailLogAt = 0;
 function requireAdmin(req, res, next) {
+  // Already locked out? Refuse BEFORE checking the key, so even a lucky
+  // correct guess can't get through while the lockout lasts.
+  if (adminFailLimiter.isBlocked(req)) {
+    return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
+  }
   const key = req.header('x-admin-key') || '';
-  const valid = key.length === ADMIN_KEY.length &&
-    crypto.timingSafeEqual(Buffer.from(key), Buffer.from(ADMIN_KEY));
-  if (!valid) {
-    logActivity('admin_login_fail', 'Rejected admin authentication attempt').catch(console.error);
+  if (!safeEqual(key, ADMIN_KEY)) {
+    // 10 wrong guesses in 15 minutes triggers the lockout above.
+    adminFailLimiter.hit(req);
+    // Write at most one audit-log row per minute so an attacker can't flood the database.
+    if (Date.now() - lastFailLogAt > 60_000) {
+      lastFailLogAt = Date.now();
+      logActivity('admin_login_fail', 'Rejected admin authentication attempt').catch(console.error);
+    }
     return res.status(401).json({ error: 'Unauthorized: missing or invalid admin key.' });
   }
   next();
@@ -178,14 +219,14 @@ async function sendOrderNotificationEmail(order) {
     ].join('\n');
 
     const itemsHtml = order.items.map(item =>
-      `<tr><td style="padding:4px 8px;">${item.name}</td><td style="padding:4px 8px;">x${item.qty}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
+      `<tr><td style="padding:4px 8px;">${escapeHtml(item.name)}</td><td style="padding:4px 8px;">x${Number(item.qty)}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
     ).join('');
 
     const htmlBody = `<div style="font-family:sans-serif;color:#222;">
-      <h2 style="color:#aa7c11;">ENITOSIN STORE — New Order ${order.id}</h2>
-      <p><strong>Customer:</strong> ${order.customer.name}<br><strong>Email:</strong> ${order.customer.email}<br><strong>Address:</strong> ${order.customer.address}</p>
+      <h2 style="color:#aa7c11;">ENITOSIN STORE — New Order ${escapeHtml(order.id)}</h2>
+      <p><strong>Customer:</strong> ${escapeHtml(order.customer.name)}<br><strong>Email:</strong> ${escapeHtml(order.customer.email)}<br><strong>Address:</strong> ${escapeHtml(order.customer.address)}</p>
       <table style="border-collapse:collapse;margin:12px 0;"><thead><tr><th style="text-align:left;padding:4px 8px;">Item</th><th style="text-align:left;padding:4px 8px;">Qty</th><th style="text-align:left;padding:4px 8px;">Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-      <p><strong>Total: ${money(order.total)}</strong><br>Status: ${order.status}<br>Placed: ${new Date(order.createdAt).toLocaleString('en-NG')}</p>
+      <p><strong>Total: ${money(order.total)}</strong><br>Status: ${escapeHtml(order.status)}<br>Placed: ${new Date(order.createdAt).toLocaleString('en-NG')}</p>
     </div>`;
 
     const { error } = await resendClient.emails.send({
@@ -236,14 +277,14 @@ async function sendOrderStatusEmail(order, status) {
     ].join('\n');
 
     const itemsHtml = (order.items || []).map(item =>
-      `<tr><td style="padding:4px 8px;">${item.name}</td><td style="padding:4px 8px;">x${item.qty}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
+      `<tr><td style="padding:4px 8px;">${escapeHtml(item.name)}</td><td style="padding:4px 8px;">x${Number(item.qty)}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
     ).join('');
 
     const badgeColor = isAccepted ? '#2e7d32' : '#c62828';
     const htmlBody = `<div style="font-family:sans-serif;color:#222;">
       <h2 style="color:#aa7c11;">ENITOSIN STORE</h2>
       <p>${introText}</p>
-      <p><strong>Order:</strong> ${order.id}<br><strong>Status:</strong> <span style="color:${badgeColor}; font-weight:bold;">${status}</span></p>
+      <p><strong>Order:</strong> ${escapeHtml(order.id)}<br><strong>Status:</strong> <span style="color:${badgeColor}; font-weight:bold;">${escapeHtml(status)}</span></p>
       <table style="border-collapse:collapse;margin:12px 0;"><thead><tr><th style="text-align:left;padding:4px 8px;">Item</th><th style="text-align:left;padding:4px 8px;">Qty</th><th style="text-align:left;padding:4px 8px;">Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody></table>
       <p><strong>Total: ${money(order.total)}</strong></p>
     </div>`;
@@ -294,7 +335,7 @@ app.get('/api/products', async (req, res) => {
 
 app.get('/api/products/:id', async (req, res) => {
   try {
-    const rows = await dbList('products', { id: `eq.${encodeURIComponent(req.params.id)}`, select: '*' });
+    const rows = await dbList('products', { id: `eq.${req.params.id}`, select: '*' });
     if (!rows.length) return res.status(404).json({ error: 'Product not found.' });
     res.json(normalizeProduct(rows[0]));
   } catch (err) {
@@ -339,6 +380,14 @@ function productPayload(body, existing = {}) {
   if (oldPrice !== null && (!Number.isFinite(oldPrice) || oldPrice < 0)) {
     throw new Error('oldPrice must be a valid non-negative number.');
   }
+  // Only real image sources are accepted. A value like "javascript:..." or
+  // "data:text/html,..." in an image field is a classic way to attack visitors.
+  if (!isSafeImageUrl(image)) {
+    throw new HttpError(400, 'Image must be an uploaded picture or an https:// image link.');
+  }
+  if (name.length > 200 || category.length > 50 || subcategory.length > 50) {
+    throw new HttpError(400, 'Product name, category or subcategory is too long.');
+  }
 
   return {
     name,
@@ -348,13 +397,13 @@ function productPayload(body, existing = {}) {
     old_price: oldPrice,
     badge: body.badge === undefined ? (existing.badge || null) : (body.badge ? String(body.badge).trim() : null),
     rating: body.rating === undefined ? (existing.rating || '5.0') : (body.rating ? String(body.rating).trim() : '5.0'),
-    description: body.desc === undefined ? (existing.description || '') : String(body.desc || '').trim(),
+    description: (body.desc === undefined ? (existing.description || '') : String(body.desc || '').trim()).slice(0, 2000),
     image,
     stock: body.stock === undefined ? (existing.stock || 'In Stock') : (String(body.stock || '').trim() || 'In Stock'),
     sizes: body.sizes === undefined
       ? (Array.isArray(existing.sizes) ? existing.sizes : [])
       : [...new Set((Array.isArray(body.sizes) ? body.sizes : String(body.sizes || '').split(','))
-          .map(size => String(size).trim()).filter(Boolean))],
+          .map(size => String(size).trim().slice(0, 20)).filter(Boolean))].slice(0, 20),
   };
 }
 
@@ -373,10 +422,10 @@ app.post('/api/products', requireAdmin, async (req, res) => {
 
 app.put('/api/products/:id', requireAdmin, async (req, res) => {
   try {
-    const existingRows = await dbList('products', { id: `eq.${encodeURIComponent(req.params.id)}`, select: '*' });
+    const existingRows = await dbList('products', { id: `eq.${req.params.id}`, select: '*' });
     if (!existingRows.length) return res.status(404).json({ error: 'Product not found.' });
     const payload = productPayload(req.body || {}, existingRows[0]);
-    const rows = await dbUpdate('products', { id: `eq.${encodeURIComponent(req.params.id)}` }, payload);
+    const rows = await dbUpdate('products', { id: `eq.${req.params.id}` }, payload);
     if (!rows.length) return res.status(404).json({ error: 'Product not found.' });
     const product = normalizeProduct(rows[0]);
     await logActivity('product_update', `Updated product "${product.name}"`, { productId: product.id });
@@ -389,9 +438,9 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
 
 app.delete('/api/products/:id', requireAdmin, async (req, res) => {
   try {
-    const existing = await dbList('products', { id: `eq.${encodeURIComponent(req.params.id)}`, select: '*' });
+    const existing = await dbList('products', { id: `eq.${req.params.id}`, select: '*' });
     if (!existing.length) return res.status(404).json({ error: 'Product not found.' });
-    await dbDelete('products', { id: `eq.${encodeURIComponent(req.params.id)}` });
+    await dbDelete('products', { id: `eq.${req.params.id}` });
     await logActivity('product_delete', `Deleted product "${existing[0].name}"`, { productId: existing[0].id });
     res.json({ success: true });
   } catch (err) {
@@ -407,11 +456,29 @@ app.delete('/api/products/:id', requireAdmin, async (req, res) => {
 // normalized {id, name, price, qty} rows plus the computed total.
 // Shared by the payment-initialize step and the final order creation,
 // so a customer can never pay based on stale/tampered prices.
+// Cleans and length-limits the customer's details. Without limits, someone
+// could submit megabytes of text as a "name" and bloat the database/emails.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function cleanCustomer(raw, { requireAddress = true } = {}) {
+  const name = String(raw?.name || '').trim();
+  const email = String(raw?.email || '').trim().toLowerCase();
+  const phone = String(raw?.phone || '').trim();
+  const address = String(raw?.address || '').trim();
+  if (!name || !email || !phone || (requireAddress && !address)) {
+    throw new HttpError(400, 'Customer name, email, phone number and address are required.');
+  }
+  if (name.length > 100 || email.length > 254 || phone.length > 30 || address.length > 300) {
+    throw new HttpError(400, 'One of your details is too long. Please shorten it and try again.');
+  }
+  if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Please provide a valid email address.');
+  return { name, email, phone, address };
+}
+
 async function validateAndPriceItems(items) {
   if (!Array.isArray(items) || items.length === 0) {
-    throw new Error('At least one item is required.');
+    throw new HttpError(400, 'At least one item is required.');
   }
-  if (items.length > 50) throw new Error('Too many items in one order.');
+  if (items.length > 50) throw new HttpError(400, 'Too many items in one order.');
 
   const products = await dbList('products', { select: 'id,name,price' });
   const normalizedItems = [];
@@ -419,7 +486,7 @@ async function validateAndPriceItems(items) {
     const product = products.find(p => String(p.id) === String(item.id));
     const qty = Number(item.qty);
     if (!product || !Number.isInteger(qty) || qty < 1 || qty > 99) {
-      throw new Error('One or more order items are invalid or unavailable.');
+      throw new HttpError(400, 'One or more order items are invalid or unavailable.');
     }
     normalizedItems.push({ id: product.id, name: product.name, price: Number(product.price), qty });
   }
@@ -460,9 +527,15 @@ async function createOrderRecord({ customer, normalizedItems, total, paymentStat
     createdAt: row.created_at,
   };
 
-  const existingCustomer = await dbList('customers', { email: `eq.${encodeURIComponent(email)}`, select: 'id' });
-  if (!existingCustomer.length) {
-    await dbInsert('customers', [{ name, email, joined_at: createdAt }]);
+  // The order is already saved, so a problem recording the customer (e.g. two
+  // orders at once hitting the unique-email rule) must never fail the order.
+  try {
+    const existingCustomer = await dbList('customers', { email: `eq.${email}`, select: 'id' });
+    if (!existingCustomer.length) {
+      await dbInsert('customers', [{ name, email, joined_at: createdAt }]);
+    }
+  } catch (err) {
+    console.warn('Could not record customer:', err.message);
   }
 
   const money = n => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -472,54 +545,40 @@ async function createOrderRecord({ customer, normalizedItems, total, paymentStat
   return newOrder;
 }
 
-app.post('/api/orders', async (req, res) => {
+// Legacy "create an order without paying" endpoint. The storefront does NOT
+// use it (it uses /api/payments/initialize), and leaving it public meant
+// anyone could create unlimited fake unpaid orders and spam the admin with
+// emails. It now needs the admin key (e.g. for manually entering a phone order).
+app.post('/api/orders', requireAdmin, async (req, res) => {
   try {
     const { customer, items, orderType } = req.body || {};
-    const name = String(customer?.name || '').trim();
-    const email = String(customer?.email || '').trim().toLowerCase();
-    const phone = String(customer?.phone || '').trim();
-    const address = String(customer?.address || '').trim();
-
-    if (!name || !email || !phone || !address) {
-      return res.status(400).json({ error: 'Customer name, email, phone number and address are required.' });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please provide a valid email address.' });
-
+    const clean = cleanCustomer(customer);
     const { normalizedItems, total } = await validateAndPriceItems(items);
-    const newOrder = await createOrderRecord({ customer: { name, email, phone, address }, normalizedItems, total, orderType });
-
+    const newOrder = await createOrderRecord({ customer: clean, normalizedItems, total, orderType });
     res.status(201).json(newOrder);
   } catch (err) {
-    handleDbError(res, err, err.message || 'Could not place order.');
+    handleDbError(res, err, 'Could not place order.');
   }
 });
 
 // =====================================================================
 // PAYMENTS (Paystack)
 // =====================================================================
-app.post('/api/payments/initialize', async (req, res) => {
+app.post('/api/payments/initialize', checkoutLimiter.middleware(), async (req, res) => {
   try {
     if (!PAYSTACK_SECRET_KEY) {
       return res.status(503).json({ error: 'Payments are not configured yet. Please contact the store.' });
     }
     const { customer, items, orderType } = req.body || {};
-    const name = String(customer?.name || '').trim();
-    const email = String(customer?.email || '').trim().toLowerCase();
-    const phone = String(customer?.phone || '').trim();
-    const address = String(customer?.address || '').trim();
+    const { name, email, phone, address } = cleanCustomer(customer);
     const resolvedOrderType = orderType === 'Pickup' ? 'Pickup' : 'Delivery';
-
-    if (!name || !email || !phone || !address) {
-      return res.status(400).json({ error: 'Customer name, email, phone number and address are required.' });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Please provide a valid email address.' });
-    }
 
     const { normalizedItems, total } = await validateAndPriceItems(items);
     if (total <= 0) return res.status(400).json({ error: 'Order total must be greater than zero.' });
 
-    const origin = `${req.protocol}://${req.get('host')}`;
+    // Where Paystack sends the customer back. Prefer a fixed PUBLIC_URL so a
+    // forged Host header can't make Paystack redirect buyers to another site.
+    const origin = String(process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
     const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
@@ -550,36 +609,72 @@ app.post('/api/payments/initialize', async (req, res) => {
       reference: data.data.reference,
     });
   } catch (err) {
-    handleDbError(res, err, err.message || 'Could not start payment.');
+    handleDbError(res, err, 'Could not start payment.');
   }
 });
 
+// Turns a database row into the order object used in this file.
+function rowToOrder(row) {
+  return {
+    id: row.id, customer: row.customer, items: row.items, total: Number(row.total),
+    status: row.status, paymentStatus: row.payment_status, paymentReference: row.payment_reference,
+    orderType: row.order_type || 'Delivery', createdAt: row.created_at,
+  };
+}
+
+// What we tell the BROWSER after payment. Deliberately minimal: the full
+// order holds the customer's name, phone and address, and anyone who got hold
+// of a payment reference would otherwise be able to read all of that.
+function publicOrderSummary(order) {
+  return { id: order.id, total: order.total, status: order.status, orderType: order.orderType };
+}
+
 // Shared by both the webhook and the verify endpoint — idempotent, so
 // whichever one runs first "wins" and the other just returns the same order.
-async function fulfillPaidOrder(reference, metadata) {
-  const existing = await dbList('orders', { payment_reference: `eq.${encodeURIComponent(reference)}`, select: '*' });
-  if (existing.length) {
-    const row = existing[0];
-    return {
-      id: row.id, customer: row.customer, items: row.items, total: Number(row.total),
-      status: row.status, paymentStatus: row.payment_status, paymentReference: row.payment_reference,
-      orderType: row.order_type || 'Delivery',
-      createdAt: row.created_at,
-    };
-  }
+// `paid` is what Paystack says was really charged: { amountKobo, currency }.
+async function fulfillPaidOrder(reference, metadata, paid = {}) {
+  const findExisting = async () => {
+    const rows = await dbList('orders', { payment_reference: `eq.${reference}`, select: '*' });
+    return rows.length ? rowToOrder(rows[0]) : null;
+  };
+
+  const existing = await findExisting();
+  if (existing) return existing;
 
   const customer = metadata?.customer || {};
   const items = metadata?.items || [];
   const { normalizedItems, total } = await validateAndPriceItems(items.map(i => ({ id: i.id, qty: i.qty })));
 
-  return createOrderRecord({
-    customer: { name: customer.name, email: customer.email, phone: customer.phone, address: customer.address },
-    normalizedItems,
-    total,
-    paymentStatus: 'Paid',
-    paymentReference: reference,
-    orderType: metadata?.orderType,
-  });
+  // Check the money actually received matches the order total. If an admin
+  // changed a price between "initialize" and "paid", or the amounts differ in
+  // any way, we must not silently mark the order as fully Paid.
+  const expectedKobo = Math.round(total * 100);
+  const amountOk = paid.amountKobo === undefined || (Number(paid.amountKobo) === expectedKobo && (paid.currency || 'NGN') === 'NGN');
+  if (!amountOk) {
+    await logActivity('payment_mismatch',
+      `Payment ${reference}: Paystack charged ${paid.amountKobo} kobo ${paid.currency || ''} but the order total is ${expectedKobo} kobo. Needs manual review.`,
+      { reference });
+  }
+
+  try {
+    return await createOrderRecord({
+      customer: { name: customer.name, email: customer.email, phone: customer.phone, address: customer.address },
+      normalizedItems,
+      total,
+      paymentStatus: amountOk ? 'Paid' : 'Check Payment',
+      paymentReference: reference,
+      orderType: metadata?.orderType,
+    });
+  } catch (err) {
+    // The webhook and the browser-return can run at the same moment. The
+    // database's unique index lets only one insert win; the loser (HTTP 409)
+    // simply returns the order the winner created.
+    if (err.status === 409) {
+      const winner = await findExisting();
+      if (winner) return winner;
+    }
+    throw err;
+  }
 }
 
 // Paystack calls this directly, server-to-server, the moment a payment
@@ -588,9 +683,10 @@ app.post('/api/payments/webhook', async (req, res) => {
   try {
     if (!PAYSTACK_SECRET_KEY) return res.sendStatus(503);
 
-    const signature = req.headers['x-paystack-signature'];
+    const signature = String(req.headers['x-paystack-signature'] || '');
     const expected = crypto.createHmac('sha512', PAYSTACK_SECRET_KEY).update(req.rawBody || Buffer.from('')).digest('hex');
-    if (!signature || signature !== expected) {
+    // constant-time compare (a plain !== can leak how much of a forged signature matched)
+    if (!signature || !safeEqual(signature, expected)) {
       console.warn('Rejected webhook: invalid Paystack signature.');
       return res.sendStatus(401);
     }
@@ -603,7 +699,9 @@ app.post('/api/payments/webhook', async (req, res) => {
       const reference = event.data?.reference;
       const metadata = event.data?.metadata;
       if (reference) {
-        await fulfillPaidOrder(reference, metadata).catch(err => {
+        await fulfillPaidOrder(reference, metadata, {
+          amountKobo: event.data?.amount, currency: event.data?.currency,
+        }).catch(err => {
           console.error('Failed to fulfill order from webhook:', err);
         });
       }
@@ -617,23 +715,15 @@ app.post('/api/payments/webhook', async (req, res) => {
 // The customer's browser hits this after Paystack redirects back —
 // confirms payment directly with Paystack's API as a safety net in case
 // the webhook is delayed, and returns the finished order either way.
-app.get('/api/payments/verify/:reference', async (req, res) => {
+app.get('/api/payments/verify/:reference', verifyLimiter.middleware(), async (req, res) => {
   try {
     if (!PAYSTACK_SECRET_KEY) return res.status(503).json({ error: 'Payments are not configured.' });
-    const { reference } = req.params;
+    const reference = String(req.params.reference || '');
+    if (!/^[A-Za-z0-9_.=-]{6,100}$/.test(reference)) return res.json({ status: 'failed' });
 
-    const existing = await dbList('orders', { payment_reference: `eq.${encodeURIComponent(reference)}`, select: '*' });
-    if (existing.length) {
-      const row = existing[0];
-      return res.json({
-        status: 'success',
-        order: {
-          id: row.id, customer: row.customer, items: row.items, total: Number(row.total),
-          status: row.status, paymentStatus: row.payment_status, paymentReference: row.payment_reference,
-          orderType: row.order_type || 'Delivery',
-          createdAt: row.created_at,
-        },
-      });
+    const rows = await dbList('orders', { payment_reference: `eq.${reference}`, select: '*' });
+    if (rows.length) {
+      return res.json({ status: 'success', order: publicOrderSummary(rowToOrder(rows[0])) });
     }
 
     const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
@@ -645,8 +735,10 @@ app.get('/api/payments/verify/:reference', async (req, res) => {
       return res.json({ status: 'failed' });
     }
 
-    const order = await fulfillPaidOrder(reference, data.data.metadata);
-    res.json({ status: 'success', order });
+    const order = await fulfillPaidOrder(reference, data.data.metadata, {
+      amountKobo: data.data.amount, currency: data.data.currency,
+    });
+    res.json({ status: 'success', order: publicOrderSummary(order) });
   } catch (err) {
     handleDbError(res, err, 'Could not verify payment.');
   }
@@ -676,7 +768,7 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
     const { status } = req.body || {};
     const allowedStatuses = ['Pending', 'Accepted', 'Rejected'];
     if (!allowedStatuses.includes(status)) return res.status(400).json({ error: 'Invalid order status.' });
-    const rows = await dbUpdate('orders', { id: `eq.${encodeURIComponent(req.params.id)}` }, { status });
+    const rows = await dbUpdate('orders', { id: `eq.${req.params.id}` }, { status });
     if (!rows.length) return res.status(404).json({ error: 'Order not found.' });
     const row = rows[0];
     await logActivity('order_status', `Order ${row.id} marked ${status}`, { orderId: row.id });
@@ -721,7 +813,7 @@ app.get('/api/reviews', async (req, res) => {
 
 // Customer submits a review after paying. The Paystack payment reference
 // (random, known only to the buyer) proves they really purchased.
-app.post('/api/reviews', async (req, res) => {
+app.post('/api/reviews', reviewLimiter.middleware(), async (req, res) => {
   try {
     const reference = String(req.body?.reference || '').trim();
     const rating = Number(req.body?.rating);
@@ -736,7 +828,7 @@ app.post('/api/reviews', async (req, res) => {
     }
 
     const orders = await dbList('orders', {
-      payment_reference: `eq.${encodeURIComponent(reference)}`,
+      payment_reference: `eq.${reference}`,
       select: 'id,customer,payment_status',
     });
     if (!orders.length || orders[0].payment_status !== 'Paid') {
@@ -744,7 +836,7 @@ app.post('/api/reviews', async (req, res) => {
     }
     const order = orders[0];
 
-    const already = await dbList('reviews', { order_id: `eq.${encodeURIComponent(order.id)}`, select: 'id' });
+    const already = await dbList('reviews', { order_id: `eq.${order.id}`, select: 'id' });
     if (already.length) return res.status(409).json({ error: 'You have already reviewed this order. Thank you!' });
 
     // Show "Firstname L." publicly instead of the full name (privacy).
@@ -775,7 +867,7 @@ app.get('/api/admin/reviews', requireAdmin, async (req, res) => {
 app.put('/api/reviews/:id/approve', requireAdmin, async (req, res) => {
   try {
     const approved = Boolean(req.body?.approved);
-    const rows = await dbUpdate('reviews', { id: `eq.${encodeURIComponent(req.params.id)}` }, { approved });
+    const rows = await dbUpdate('reviews', { id: `eq.${req.params.id}` }, { approved });
     if (!rows.length) return res.status(404).json({ error: 'Review not found.' });
     await logActivity('review_moderation', `Review ${rows[0].id} ${approved ? 'approved' : 'hidden'}`, { reviewId: rows[0].id });
     res.json({ success: true, approved });
@@ -786,7 +878,7 @@ app.put('/api/reviews/:id/approve', requireAdmin, async (req, res) => {
 
 app.delete('/api/reviews/:id', requireAdmin, async (req, res) => {
   try {
-    const rows = await dbDelete('reviews', { id: `eq.${encodeURIComponent(req.params.id)}` });
+    const rows = await dbDelete('reviews', { id: `eq.${req.params.id}` });
     if (!rows.length) return res.status(404).json({ error: 'Review not found.' });
     await logActivity('review_moderation', `Review ${rows[0].id} deleted`, { reviewId: rows[0].id });
     res.json({ success: true });

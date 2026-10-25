@@ -1310,13 +1310,13 @@
             <div class="product-img-wrap">
               <img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}">
               <div class="product-actions">
-                <button class="outline-btn" style="padding:0.4rem 0.8rem; font-size:0.7rem;" onclick="openQuickView(${p.id})">Quick View</button>
-                <button class="gold-btn" style="padding:0.4rem 0.8rem; font-size:0.7rem;" onclick="addToCart(${p.id})">Add To Bag</button>
+                <button class="outline-btn" style="padding:0.4rem 0.8rem; font-size:0.7rem;" onclick="openQuickView(${Number(p.id)})">Quick View</button>
+                <button class="gold-btn" style="padding:0.4rem 0.8rem; font-size:0.7rem;" onclick="addToCart(${Number(p.id)})">Add To Bag</button>
               </div>
             </div>
             <div class="product-info">
-              <span class="product-cat">${p.category}</span>
-              <h3 class="product-title">${p.name}</h3>
+              <span class="product-cat">${escapeHTML(p.category)}</span>
+              <h3 class="product-title">${escapeHTML(p.name)}</h3>
               <div class="product-price">
                 ₦${Number(p.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 ${p.oldPrice ? `<span class="old-price">₦${Number(p.oldPrice).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>` : ''}
@@ -1432,14 +1432,14 @@
         total += item.price * item.qty;
         container.innerHTML += `
           <div class="cart-item">
-            <img src="${item.image}" alt="${item.name}">
+            <img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.name)}">
             <div style="flex:1;">
               <h4 style="font-size:0.9rem;">${escapeHTML(item.name)}</h4>${item.size ? `<p style="font-size:0.75rem;color:var(--text-muted);">Size: ${escapeHTML(item.size)}</p>` : ''}
               <p style="color:var(--gold-primary); font-size:0.85rem;">₦${Number(item.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.3rem;">
-                <button onclick="updateQty(${item.id}, -1)" style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; width:20px; height:20px;">-</button>
-                <span style="font-size:0.85rem;">${item.qty}</span>
-                <button onclick="updateQty(${item.id}, 1)" style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; width:20px; height:20px;">+</button>
+                <button onclick="updateQty(${Number(item.id)}, -1)" style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; width:20px; height:20px;">-</button>
+                <span style="font-size:0.85rem;">${Number(item.qty)}</span>
+                <button onclick="updateQty(${Number(item.id)}, 1)" style="background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff; width:20px; height:20px;">+</button>
               </div>
             </div>
           </div>
@@ -1491,13 +1491,13 @@
       content.innerHTML = `
         <button class="close-modal" onclick="closeQuickView()">✕</button>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:2rem; margin-top:1rem;">
-          <img src="${p.image}" alt="${p.name}" style="width:100%; border-radius:4px; border:1px solid var(--border-gold);">
+          <img src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" style="width:100%; border-radius:4px; border:1px solid var(--border-gold);">
           <div>
-            <span class="product-cat">${p.category}</span>
-            <h2 class="gold-text" style="margin:0.5rem 0;">${p.name}</h2>
+            <span class="product-cat">${escapeHTML(p.category)}</span>
+            <h2 class="gold-text" style="margin:0.5rem 0;">${escapeHTML(p.name)}</h2>
             <p style="font-size:1.3rem; font-weight:bold; margin-bottom:1rem;">₦${Number(p.price).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            <p style="color:var(--text-muted); margin-bottom:1.5rem;">${p.desc}</p>
-            <button class="gold-btn" onclick="addToCart(${p.id}); closeQuickView();">Add To Shopping Bag</button>
+            <p style="color:var(--text-muted); margin-bottom:1.5rem;">${escapeHTML(p.desc)}</p>
+            <button class="gold-btn" onclick="addToCart(${Number(p.id)}); closeQuickView();">Add To Shopping Bag</button>
           </div>
         </div>
       `;

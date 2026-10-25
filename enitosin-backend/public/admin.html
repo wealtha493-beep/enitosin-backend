@@ -617,7 +617,10 @@
       ? 'http://localhost:3000/api'
       : `${window.location.origin}/api`;
 
-    let adminKey = localStorage.getItem('enitosin_admin_key') || '';
+    // sessionStorage (not localStorage): the key is forgotten when the tab/browser
+    // closes, so it doesn't sit on disk indefinitely where a script could read it later.
+    localStorage.removeItem('enitosin_admin_key'); // clean up the old long-lived copy
+    let adminKey = sessionStorage.getItem('enitosin_admin_key') || '';
     let adminProducts = [];
 
     // ------------------------------------------------------------------
@@ -682,7 +685,7 @@
       }
 
       adminKey = input;
-      localStorage.setItem('enitosin_admin_key', adminKey);
+      sessionStorage.setItem('enitosin_admin_key', adminKey);
       document.getElementById('adminGate').style.display = 'none';
       initDashboard();
     }

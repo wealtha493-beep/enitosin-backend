@@ -20,6 +20,12 @@ services:
         sync: false   # from Paystack dashboard -> Settings -> API Keys & Webhooks (sk_test_... while testing)
       - key: NODE_VERSION
         value: 20.11.0
+      - key: NODE_ENV
+        value: production
+      - key: PUBLIC_URL
+        sync: false   # your live site address, e.g. https://enitosin-store.onrender.com
+      - key: ALLOWED_ORIGINS
+        sync: false   # optional — only if another website must call this API
 
 # NOTE: Products, orders, customers, settings, and activity logs are now
 # persisted in Supabase. Render only runs the Node/Express backend, so a

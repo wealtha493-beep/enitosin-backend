@@ -57,3 +57,11 @@ No Render disk is required for products/orders/logs anymore. Supabase is the per
 ## Notes
 
 Product images are currently stored as data URLs in the `products.image` text column to keep the existing admin upload flow working. For a larger production catalog, moving images to Supabase Storage is recommended later.
+
+## Security notes
+
+- `security.js` holds the security helpers (header policy, rate limiter, constant-time key check, HTML escaping, image-URL check). It uses only Node's built-in `crypto`, so there are no extra packages.
+- Set `ADMIN_KEY` to a long random value (30+ characters). After 10 wrong guesses an IP is locked out for 15 minutes.
+- Set `PUBLIC_URL` (and `NODE_ENV=production`) on Render. Rotate any key that was ever pasted into chat, email, or GitHub.
+- Run `npm audit` now and then, and `npm update` to pick up patched dependency versions.
+- Orders whose Paystack amount does not match the order total are saved with payment status "Check Payment" and logged as `payment_mismatch` — review them manually before shipping.
