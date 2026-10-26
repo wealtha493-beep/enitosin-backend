@@ -72,3 +72,12 @@ Product images are currently stored as data URLs in the `products.image` text co
 - In `admin.html` open **Delivery Areas** to add places and prices. Customers pick their area at checkout and the fee is added to the total; Pick Up is always free.
 - The fee is always looked up on the server, never trusted from the browser.
 - Each order saves the customer's phone, area, fee and item sizes. Use **Copy Details** on an order to send the delivery info to your rider.
+
+## Customer accounts (login required to order)
+
+- Run the "CUSTOMER ACCOUNTS" block at the bottom of `supabase-schema.sql` (safe to run again).
+- Customers sign up with name, email, phone and a password, and must agree to the Policies & Privacy Notice. They cannot check out without logging in.
+- Order updates (accepted / rejected) are emailed to the email on the customer's account. To email real customers you must verify a domain in Resend and set `RESEND_FROM_EMAIL` (the default `onboarding@resend.dev` only delivers to your own Resend email).
+- "Forgot password" emails a link that works for 30 minutes and only once.
+- Passwords are stored as salted scrypt hashes (`customer-auth.js`); logins use a signed HttpOnly cookie. Set `SESSION_SECRET` on Render.
+- The admin page shows each ordered item's picture (click to enlarge) and a Customers list with name, email and phone.

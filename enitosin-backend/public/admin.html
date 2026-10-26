@@ -369,7 +369,7 @@
       <li><a href="#" onclick="return goToSection(event, 'ordersSection', this)">Orders</a></li>
       <li><a href="#" onclick="return goToSection(event, 'zonesSection', this)">Delivery Areas</a></li>
       <li><a href="#" onclick="return goToSection(event, 'reviewsSection', this)">Reviews</a></li>
-      <li><a href="#" onclick="return goToSection(event, 'top', this)">Customers</a></li>
+      <li><a href="#" onclick="return goToSection(event, 'customersSection', this)">Customers</a></li>
       <li><a href="#" onclick="return goToSection(event, 'productsSection', this)">Inventory</a></li>
       <li><a href="#settingsSection" onclick="return goToSection(event, 'settingsSection', this)">Settings</a></li>
       <li><a href="index.html">← View Store Front</a></li>
@@ -464,6 +464,21 @@
           <tbody id="adminOrdersTable">
             <!-- Populated live from the storefront checkout via /api/orders -->
           </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CUSTOMER ACCOUNTS -->
+    <div class="dashboard-section" id="customersSection">
+      <div class="section-header">
+        <h3>Customer Accounts</h3>
+        <button class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="loadCustomers()">Refresh</button>
+      </div>
+      <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Everyone who signed up (and agreed to the policies). Order updates are emailed to the address shown here.</p>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Joined</th></tr></thead>
+          <tbody id="adminCustomersTable"></tbody>
         </table>
       </div>
     </div>
@@ -884,9 +899,16 @@
         const statusClass = statusClassMap[o.status] || 'low-stock';
         const phoneDigits = String(c.phone || '').replace(/[^0-9+]/g, '');
         const small = 'color:var(--text-muted); font-size:0.75rem;';
-        const itemsHtml = (o.items || []).map(i =>
-          `<div>• ${escapeHTML(i.name)}${i.size ? ` <strong>(Size ${escapeHTML(i.size)})</strong>` : ''} ×${Number(i.qty)}</div>`
-        ).join('');
+        // Each ordered item shows its product picture (looked up by product id from
+        // the product list already loaded above). Click a picture to enlarge it.
+        const itemsHtml = (o.items || []).map(i => {
+          const prod = adminProducts.find(p => String(p.id) === String(i.id));
+          const thumb = prod && prod.image
+            ? `<img src="${escapeHTML(prod.image)}" alt="${escapeHTML(i.name)}" title="Click to enlarge" onclick="viewProductImage(${Number(i.id)})" style="width:56px; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--border-gold); cursor:zoom-in; flex-shrink:0;">`
+            : `<div title="Picture not available (product removed)" style="width:56px; height:56px; border-radius:6px; border:1px dashed var(--border-gold); display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">🖼</div>`;
+          return `<div style="display:flex; gap:0.6rem; align-items:center; margin-bottom:0.5rem;">${thumb}
+            <div>${escapeHTML(i.name)}${i.size ? `<br><strong>Size ${escapeHTML(i.size)}</strong>` : ''}<br><span style="color:var(--text-muted); font-size:0.75rem;">Qty ×${Number(i.qty)}</span></div></div>`;
+        }).join('');
         const time = o.createdAt ? new Date(o.createdAt).toLocaleString('en-NG') : '';
         tbody.innerHTML += `
           <tr>
@@ -966,6 +988,38 @@
       } catch (err) {
         alert(err.message);
       }
+    }
+
+    // ---------- big picture viewer ----------
+    function viewProductImage(id) {
+      const prod = adminProducts.find(p => String(p.id) === String(id));
+      if (!prod || !prod.image) return;
+      document.getElementById('lightboxImg').src = prod.image;
+      document.getElementById('lightboxCaption').textContent = prod.name;
+      document.getElementById('imageLightbox').style.display = 'flex';
+    }
+    function closeProductImage() { document.getElementById('imageLightbox').style.display = 'none'; }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeProductImage(); });
+
+    // ---------- customer accounts ----------
+    async function loadCustomers() {
+      const res = await fetch(`${API_BASE}/admin/customers`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const customers = await res.json();
+      const tbody = document.getElementById('adminCustomersTable');
+      if (!customers.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No customer accounts yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = customers.map(c => {
+        const digits = String(c.phone || '').replace(/[^0-9+]/g, '');
+        return `<tr>
+          <td>${escapeHTML(c.name)}</td>
+          <td>${escapeHTML(c.email)}</td>
+          <td>${digits ? `<a href="tel:${escapeHTML(digits)}" style="color:var(--gold-primary);">${escapeHTML(c.phone)}</a>` : '-'}</td>
+          <td style="color:var(--text-muted); font-size:0.8rem;">${escapeHTML(c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-NG') : '')}</td>
+        </tr>`;
+      }).join('');
     }
 
     // ---------- delivery areas ----------
@@ -1165,6 +1219,7 @@
       await loadProducts();
       await loadStats();
       await loadOrders();
+      await loadCustomers();
       await loadZones();
       await loadAdminReviews();
       await loadLogs();
@@ -1199,5 +1254,13 @@
     });
 
   </script>
+  <!-- BIG PICTURE VIEWER (click an ordered item's picture) -->
+  <div id="imageLightbox" onclick="closeProductImage()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:3000; align-items:center; justify-content:center; padding:1.5rem; cursor:zoom-out;">
+    <div style="text-align:center; max-width:92vw;">
+      <img id="lightboxImg" alt="" style="max-width:100%; max-height:80vh; border-radius:10px; border:1px solid var(--border-gold);">
+      <p id="lightboxCaption" style="color:#fff; margin-top:0.8rem;"></p>
+    </div>
+  </div>
+
 </body>
 </html>

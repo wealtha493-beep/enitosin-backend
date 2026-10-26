@@ -582,6 +582,20 @@
       background: var(--bg-dark); border: 1px solid var(--border-gold); color: #fff; border-radius: var(--radius-sm);
     }
 
+    /* CUSTOMER LOGIN + POLICIES */
+    .auth-input {
+      width: 100%; padding: 0.7rem; margin-bottom: 0.9rem; font-family: var(--font-sans);
+      background: var(--bg-dark); border: 1px solid var(--border-gold); color: #fff; border-radius: var(--radius-sm);
+    }
+    .auth-label { display: block; font-size: 0.78rem; margin-bottom: 0.3rem; color: var(--text-muted); }
+    .auth-link { color: var(--gold-primary); cursor: pointer; text-decoration: underline; background: none; border: none; font: inherit; padding: 0; }
+    .auth-error { color: #ff6b6b; font-size: 0.82rem; min-height: 1.1rem; margin-bottom: 0.6rem; }
+    .auth-notice { background: rgba(212,175,55,0.1); border: 1px solid var(--border-gold); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; font-size: 0.82rem; margin-bottom: 1rem; display: none; }
+    .policy-body { max-height: 55vh; overflow-y: auto; text-align: left; font-size: 0.85rem; color: var(--text-muted); padding-right: 0.4rem; }
+    .policy-body h4 { color: var(--gold-light); margin: 1rem 0 0.3rem; font-size: 0.95rem; }
+    .policy-body ul { margin-left: 1.1rem; }
+    @media (max-width: 640px) { #accountLabel { display: none; } }
+
     /* MODAL */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 3000;
@@ -887,6 +901,9 @@
             </div>
           </div>
         </div>
+        <button class="icon-btn" onclick="handleAccountClick()" title="Account" id="accountBtn">
+          👤 <span id="accountLabel" style="font-size:0.8rem;">Log In</span>
+        </button>
         <button class="icon-btn" onclick="toggleCart()" title="Cart">
           🛒 <span class="cart-badge" id="cartCount">0</span>
         </button>
@@ -1105,7 +1122,7 @@
             <li><a href="#about">About Enitosin</a></li>
             <li><a href="#">Craftsmanship</a></li>
             <li><a href="#">Careers</a></li>
-            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#" onclick="openPolicyModal(); return false;">Policies &amp; Privacy</a></li>
           </ul>
         </div>
         <div class="footer-col">
@@ -1147,6 +1164,7 @@
     <div class="modal-content">
       <button class="close-modal" onclick="closeCheckout()">✕</button>
       <h2 class="gold-text" style="margin-bottom: 1.5rem;">Checkout — Enitosin Store</h2>
+      <p id="checkoutAccountNote" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;"></p>
       <form onsubmit="processOrder(event)">
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
           <div>
@@ -1193,6 +1211,114 @@
           <button type="submit" class="gold-btn">Proceed to Payment</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- CUSTOMER LOGIN / SIGN UP / PASSWORD RESET -->
+  <div class="modal-overlay" id="authModal">
+    <div class="modal-content" style="max-width: 440px;">
+      <button class="close-modal" onclick="closeAuthModal()">✕</button>
+      <h2 class="gold-text" id="authTitle" style="margin-bottom:0.8rem; text-align:center;">Log In</h2>
+      <div class="auth-notice" id="authNotice"></div>
+      <div class="auth-error" id="authError" role="alert"></div>
+
+      <form id="loginForm" onsubmit="submitLogin(event)">
+        <label class="auth-label">Email</label>
+        <input class="auth-input" type="email" id="loginEmail" autocomplete="email" required>
+        <label class="auth-label">Password</label>
+        <input class="auth-input" type="password" id="loginPassword" autocomplete="current-password" required>
+        <button type="submit" class="gold-btn" style="width:100%;">Log In</button>
+        <p style="text-align:center; margin-top:1rem; font-size:0.82rem;">
+          <button type="button" class="auth-link" onclick="showAuthView('forgot')">Forgot password?</button>
+          &nbsp;·&nbsp;
+          <button type="button" class="auth-link" onclick="showAuthView('signup')">Create account</button>
+        </p>
+      </form>
+
+      <form id="signupForm" onsubmit="submitSignup(event)" style="display:none;">
+        <label class="auth-label">Full name</label>
+        <input class="auth-input" type="text" id="signupName" maxlength="100" autocomplete="name" required>
+        <label class="auth-label">Email (we send your order updates here)</label>
+        <input class="auth-input" type="email" id="signupEmail" autocomplete="email" required>
+        <label class="auth-label">Phone number</label>
+        <input class="auth-input" type="tel" id="signupPhone" placeholder="e.g. 08012345678" autocomplete="tel" required>
+        <label class="auth-label">Password (at least 8 characters)</label>
+        <input class="auth-input" type="password" id="signupPassword" minlength="8" autocomplete="new-password" required>
+        <label class="auth-label">Confirm password</label>
+        <input class="auth-input" type="password" id="signupConfirm" minlength="8" autocomplete="new-password" required>
+        <label style="display:flex; gap:0.5rem; align-items:flex-start; font-size:0.82rem; margin-bottom:1rem; color:var(--text-muted);">
+          <input type="checkbox" id="signupAgree" required style="margin-top:0.2rem;">
+          <span>I have read and agree to the <button type="button" class="auth-link" onclick="openPolicyModal()">Policies &amp; Privacy Notice</button>.</span>
+        </label>
+        <button type="submit" class="gold-btn" style="width:100%;">Create Account</button>
+        <p style="text-align:center; margin-top:1rem; font-size:0.82rem;">
+          Already have an account? <button type="button" class="auth-link" onclick="showAuthView('login')">Log in</button>
+        </p>
+      </form>
+
+      <form id="forgotForm" onsubmit="submitForgot(event)" style="display:none;">
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Enter your email and we will send you a link to choose a new password.</p>
+        <label class="auth-label">Email</label>
+        <input class="auth-input" type="email" id="forgotEmail" autocomplete="email" required>
+        <button type="submit" class="gold-btn" style="width:100%;">Send Reset Link</button>
+        <p style="text-align:center; margin-top:1rem; font-size:0.82rem;">
+          <button type="button" class="auth-link" onclick="showAuthView('login')">Back to log in</button>
+        </p>
+      </form>
+
+      <form id="resetForm" onsubmit="submitReset(event)" style="display:none;">
+        <label class="auth-label">New password (at least 8 characters)</label>
+        <input class="auth-input" type="password" id="resetPassword" minlength="8" autocomplete="new-password" required>
+        <label class="auth-label">Confirm new password</label>
+        <input class="auth-input" type="password" id="resetConfirm" minlength="8" autocomplete="new-password" required>
+        <button type="submit" class="gold-btn" style="width:100%;">Save New Password</button>
+      </form>
+
+      <div id="accountView" style="display:none; text-align:center;">
+        <p style="font-size:1.05rem; font-weight:600;" id="accountName"></p>
+        <p style="color:var(--text-muted); font-size:0.85rem;" id="accountEmail"></p>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.2rem;" id="accountPhone"></p>
+        <button class="gold-btn" style="background:transparent; color:#fff; border:1px solid var(--border-gold);" onclick="logoutCustomer()">Log Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- POLICIES & PRIVACY NOTICE (customers must agree when creating an account) -->
+  <div class="modal-overlay" id="policyModal">
+    <div class="modal-content" style="max-width: 560px;">
+      <button class="close-modal" onclick="closePolicyModal()">✕</button>
+      <h2 class="gold-text" style="margin-bottom:0.8rem; text-align:center;">Policies &amp; Privacy Notice</h2>
+      <div class="policy-body">
+        <h4>1. Orders and delivery</h4>
+        <ul>
+          <li>You must log in to place an order.</li>
+          <li>Placing an order and paying does not guarantee it. An order is processed and delivered only after the store accepts it.</li>
+          <li>Delivery orders include a dispatch rider fee based on your delivery area. It is shown before you pay. Pick Up orders have no rider fee.</li>
+          <li>Please give a correct address and a phone number we can reach, because the rider will call you.</li>
+        </ul>
+        <h4>2. Order notifications</h4>
+        <ul>
+          <li>We email you when your order is <strong>accepted</strong> or <strong>rejected</strong>, at the email address on your account. Please keep it correct and check your spam folder.</li>
+        </ul>
+        <h4>3. Payments and refunds</h4>
+        <ul>
+          <li>Payments are made through Paystack. We never see or store your card details.</li>
+          <li>If we reject an order, you will be refunded the amount you paid. Refunds are sent back to the original payment method and may take several working days to show.</li>
+        </ul>
+        <h4>4. Privacy</h4>
+        <ul>
+          <li>We collect your name, email, phone number and delivery address only to create your account, process and deliver your orders, and send order updates and password-reset emails.</li>
+          <li>We do not sell your information. It is shared only with the services needed to run your order, such as the payment provider and the dispatch rider who delivers it.</li>
+          <li>Your password is stored in encrypted form (a one-way hash). Nobody at the store can read it.</li>
+          <li>If you leave a review, only your first name and last initial are shown.</li>
+        </ul>
+        <h4>5. Your account</h4>
+        <ul>
+          <li>Keep your password private. You can reset it any time with "Forgot password".</li>
+          <li>Contact the store using the details on this website if you want help with an order or your account.</li>
+        </ul>
+      </div>
+      <button class="gold-btn" style="width:100%; margin-top:1rem;" onclick="closePolicyModal()">Close</button>
     </div>
   </div>
 
@@ -1512,12 +1638,196 @@
     }
 
     function closeQuickView() { document.getElementById('quickViewModal').classList.remove('active'); }
+    // "Proceed To Checkout" in the cart: close the cart, then start checkout.
     async function openCheckout() {
       toggleCart();
+      await startCheckout();
+    }
+
+    // Customers must be logged in to order. If not, show the login box first
+    // and continue to checkout automatically once they are in.
+    async function startCheckout() {
+      if (!currentCustomer) await loadCurrentCustomer(); // maybe they logged in on another tab
+      if (!currentCustomer) {
+        pendingCheckout = true;
+        showAuthView('login', 'Please log in or create an account to place your order.');
+        openAuthModal();
+        return;
+      }
+      // Name and email come from the account (read-only) so order updates go to the right inbox.
+      const nameInput = document.getElementById('checkoutName');
+      const emailInput = document.getElementById('checkoutEmail');
+      const phoneInput = document.getElementById('checkoutPhone');
+      nameInput.value = currentCustomer.name; nameInput.readOnly = true;
+      emailInput.value = currentCustomer.email; emailInput.readOnly = true;
+      nameInput.style.opacity = emailInput.style.opacity = '0.75';
+      if (!phoneInput.value) phoneInput.value = currentCustomer.phone || '';
+      document.getElementById('checkoutAccountNote').textContent =
+        `Ordering as ${currentCustomer.name}. We will email ${currentCustomer.email} when your order is accepted or rejected.`;
+
       document.getElementById('checkoutModal').classList.add('active');
       handleOrderTypeChange();
       await loadDeliveryZones(); // fresh prices every time checkout opens
       handleOrderTypeChange();
+    }
+
+    /* CUSTOMER ACCOUNT (login / sign up / forgot password) */
+    let currentCustomer = null;
+    let pendingCheckout = false;   // true when login was triggered by trying to check out
+    let resetToken = null;
+
+    async function loadCurrentCustomer() {
+      try {
+        const res = await fetch(`${API_BASE}/customer/me`);
+        const data = res.ok ? await res.json() : {};
+        currentCustomer = data.customer || null;
+      } catch (err) {
+        currentCustomer = null;
+      }
+      updateAccountUI();
+    }
+
+    function updateAccountUI() {
+      document.getElementById('accountLabel').textContent = currentCustomer ? currentCustomer.name.split(' ')[0] : 'Log In';
+    }
+
+    function handleAccountClick() {
+      pendingCheckout = false;
+      if (currentCustomer) {
+        document.getElementById('accountName').textContent = currentCustomer.name;
+        document.getElementById('accountEmail').textContent = currentCustomer.email;
+        document.getElementById('accountPhone').textContent = currentCustomer.phone || '';
+        showAuthView('account');
+      } else {
+        showAuthView('login');
+      }
+      openAuthModal();
+    }
+
+    function openAuthModal() { document.getElementById('authModal').classList.add('active'); }
+    function closeAuthModal() { document.getElementById('authModal').classList.remove('active'); pendingCheckout = false; }
+    function openPolicyModal() { document.getElementById('policyModal').classList.add('active'); }
+    function closePolicyModal() { document.getElementById('policyModal').classList.remove('active'); }
+
+    function showAuthView(view, notice) {
+      const titles = { login: 'Log In', signup: 'Create Account', forgot: 'Forgot Password', reset: 'Choose A New Password', account: 'My Account' };
+      const forms = { login: 'loginForm', signup: 'signupForm', forgot: 'forgotForm', reset: 'resetForm', account: 'accountView' };
+      Object.entries(forms).forEach(([key, id]) => {
+        document.getElementById(id).style.display = key === view ? 'block' : 'none';
+      });
+      document.getElementById('authTitle').textContent = titles[view];
+      const noticeEl = document.getElementById('authNotice');
+      noticeEl.textContent = notice || '';
+      noticeEl.style.display = notice ? 'block' : 'none';
+      document.getElementById('authError').textContent = '';
+    }
+
+    function setAuthError(message) { document.getElementById('authError').textContent = message || ''; }
+
+    async function authPost(path, body) {
+      const res = await fetch(`${API_BASE}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok, data };
+    }
+
+    async function withBusyButton(form, busyText, task) {
+      const btn = form.querySelector('button[type="submit"]');
+      const original = btn.innerText;
+      btn.disabled = true; btn.innerText = busyText;
+      try { await task(); } finally { btn.disabled = false; btn.innerText = original; }
+    }
+
+    function finishLogin(customer) {
+      currentCustomer = customer;
+      updateAccountUI();
+      const goToCheckout = pendingCheckout;
+      pendingCheckout = false;
+      document.getElementById('authModal').classList.remove('active');
+      showToast(`Welcome, ${customer.name.split(' ')[0]}!`);
+      if (goToCheckout) startCheckout();
+    }
+
+    async function submitLogin(e) {
+      e.preventDefault();
+      setAuthError('');
+      await withBusyButton(e.target, 'Logging in...', async () => {
+        const { ok, data } = await authPost('/customer/login', {
+          email: document.getElementById('loginEmail').value.trim(),
+          password: document.getElementById('loginPassword').value,
+        });
+        if (!ok) return setAuthError(data.error || 'Could not log you in.');
+        document.getElementById('loginPassword').value = '';
+        finishLogin(data.customer);
+      });
+    }
+
+    async function submitSignup(e) {
+      e.preventDefault();
+      setAuthError('');
+      const password = document.getElementById('signupPassword').value;
+      if (password !== document.getElementById('signupConfirm').value) return setAuthError('The two passwords do not match.');
+      if (!document.getElementById('signupAgree').checked) return setAuthError('Please agree to the Policies & Privacy Notice.');
+      await withBusyButton(e.target, 'Creating account...', async () => {
+        const { ok, data } = await authPost('/customer/register', {
+          name: document.getElementById('signupName').value.trim(),
+          email: document.getElementById('signupEmail').value.trim(),
+          phone: document.getElementById('signupPhone').value.trim(),
+          password,
+          acceptPolicies: true,
+        });
+        if (!ok) return setAuthError(data.error || 'Could not create your account.');
+        document.getElementById('signupPassword').value = '';
+        document.getElementById('signupConfirm').value = '';
+        finishLogin(data.customer);
+      });
+    }
+
+    async function submitForgot(e) {
+      e.preventDefault();
+      setAuthError('');
+      await withBusyButton(e.target, 'Sending...', async () => {
+        const { ok, data } = await authPost('/customer/forgot-password', { email: document.getElementById('forgotEmail').value.trim() });
+        if (!ok) return setAuthError(data.error || 'Could not send the reset link.');
+        showAuthView('login', 'If an account exists for that email, a reset link is on its way. Check your inbox and spam folder.');
+      });
+    }
+
+    async function submitReset(e) {
+      e.preventDefault();
+      setAuthError('');
+      const password = document.getElementById('resetPassword').value;
+      if (password !== document.getElementById('resetConfirm').value) return setAuthError('The two passwords do not match.');
+      await withBusyButton(e.target, 'Saving...', async () => {
+        const { ok, data } = await authPost('/customer/reset-password', { token: resetToken, password });
+        if (!ok) return setAuthError(data.error || 'Could not reset your password.');
+        resetToken = null;
+        document.getElementById('resetPassword').value = '';
+        document.getElementById('resetConfirm').value = '';
+        showAuthView('login', 'Password updated. Please log in with your new password.');
+      });
+    }
+
+    async function logoutCustomer() {
+      try { await authPost('/customer/logout', {}); } catch (err) { /* cookie is cleared server-side; ignore network errors */ }
+      currentCustomer = null;
+      updateAccountUI();
+      closeAuthModal();
+      showToast('You have been logged out.');
+    }
+
+    // Opened from the link in the password-reset email: /?reset=TOKEN
+    function checkResetLink() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('reset');
+      if (!token) return;
+      window.history.replaceState({}, document.title, window.location.pathname);
+      resetToken = token;
+      showAuthView('reset');
+      openAuthModal();
     }
     function closeCheckout() { document.getElementById('checkoutModal').classList.remove('active'); }
 
@@ -1621,6 +1931,16 @@
           body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => ({}));
+        if (res.status === 401 && data.code === 'LOGIN_REQUIRED') {
+          // login expired while the checkout box was open
+          currentCustomer = null; updateAccountUI();
+          document.getElementById('checkoutModal').classList.remove('active');
+          pendingCheckout = true;
+          showAuthView('login', 'Your login has expired. Please log in again to continue.');
+          openAuthModal();
+          submitBtn.disabled = false; submitBtn.innerText = 'Proceed to Payment';
+          return;
+        }
         if (!res.ok) throw new Error(data.error || 'Could not start payment.');
 
         // remember the cart so we can clear it once payment is confirmed,
@@ -1751,6 +2071,8 @@
     // INIT
     loadProducts();
     loadReviews();
+    loadCurrentCustomer();
+    checkResetLink();
     updateCartUI();
 
     // ---------- premium motion ----------

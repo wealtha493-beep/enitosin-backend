@@ -14,6 +14,7 @@ const { Resend } = require('resend');
 const {
   escapeHtml, safeEqual, createRateLimiter, securityHeaders, isSafeImageUrl, HttpError,
 } = require('./security');
+const auth = require('./customer-auth');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -77,6 +78,11 @@ const checkoutLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 20, mess
 const reviewLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 5, message: 'Too many review attempts. Please try again later.' });
 const verifyLimiter = createRateLimiter({ windowMs: 60_000, max: 30 });
 const adminFailLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10 });
+// customer-account limiters
+const loginFailLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10 });
+const registerLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 10, message: 'Too many sign-up attempts. Please try again later.' });
+const forgotLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 5, message: 'Too many reset requests. Please try again later.' });
+const resetLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 10 });
 app.use('/api', apiLimiter.middleware());
 app.use(express.static(require('path').join(__dirname, 'public')));
 
@@ -535,14 +541,18 @@ async function resolveDelivery(orderType, zoneId) {
 // direct-order endpoint and by the Paystack payment flow once a
 // payment has been confirmed as successful.
 async function createOrderRecord({ customer, normalizedItems, total, paymentStatus, paymentReference, orderType, delivery }) {
-  const { name, email, phone, address } = customer;
+  const { name, email, phone, address, accountId } = customer;
   const orderId = `EN-${Date.now().toString().slice(-8)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
   const createdAt = new Date().toISOString();
   const orderRecord = {
     id: orderId,
     // Phone and delivery area/fee live inside the existing `customer` JSON
     // column, so the orders table needs no change.
-    customer: { name, email, phone, address, ...(delivery ? { delivery: { area: delivery.area, fee: delivery.fee } } : {}) },
+    customer: {
+      name, email, phone, address,
+      ...(accountId ? { accountId } : {}),                       // which customer account placed it
+      ...(delivery ? { delivery: { area: delivery.area, fee: delivery.fee } } : {}),
+    },
     items: normalizedItems,
     total,
     status: 'Pending',
@@ -603,15 +613,249 @@ app.post('/api/orders', requireAdmin, async (req, res) => {
 });
 
 // =====================================================================
+// CUSTOMER ACCOUNTS (login required to order)
+// =====================================================================
+
+// Secret used to sign login cookies. Set SESSION_SECRET on Render. If it is
+// missing we derive one from ADMIN_KEY so logins still survive a restart.
+const SESSION_SECRET = process.env.SESSION_SECRET
+  || crypto.createHash('sha256').update(`enitosin-session:${ADMIN_KEY}`).digest('hex');
+
+// Blocks "cross-site request forgery": if the browser says the request came
+// from a different website, refuse it. (SameSite cookies already help; this is a second lock.)
+function sameOriginOnly(req, res, next) {
+  const origin = req.get('origin');
+  if (!origin) return next(); // same-origin GETs and non-browser tools send none
+  try {
+    if (new URL(origin).host === req.get('host') || ALLOWED_ORIGINS.includes(origin)) return next();
+  } catch { /* fall through */ }
+  res.status(403).json({ error: 'Request blocked.' });
+}
+
+function publicOrigin(req) {
+  return String(process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+}
+
+function startSession(res, account) {
+  const token = auth.signSession({ id: account.id, passwordHash: account.password_hash }, SESSION_SECRET);
+  res.setHeader('Set-Cookie', auth.sessionCookie(token, { secure: IS_PRODUCTION }));
+}
+
+function publicAccount(a) {
+  return { id: a.id, name: a.name, email: a.email, phone: a.phone };
+}
+
+// Reads the login cookie and returns the account row (or null).
+async function getCustomerFromRequest(req) {
+  const token = auth.parseCookies(req.headers.cookie)[auth.SESSION_COOKIE];
+  const payload = auth.verifySession(token, SESSION_SECRET);
+  if (!payload) return null;
+  const rows = await dbList('customer_accounts', { id: `eq.${payload.id}`, select: 'id,name,email,phone,password_hash' });
+  if (!rows.length) return null;
+  if (auth.passwordFingerprint(rows[0].password_hash) !== payload.pv) return null; // password changed -> old logins end
+  return rows[0];
+}
+
+async function requireCustomer(req, res, next) {
+  try {
+    const account = await getCustomerFromRequest(req);
+    if (!account) {
+      return res.status(401).json({ error: 'Please log in or create an account to place your order.', code: 'LOGIN_REQUIRED' });
+    }
+    req.customer = account;
+    next();
+  } catch (err) {
+    if (err.status === 404) {
+      console.error('customer_accounts table not found — run the CUSTOMER ACCOUNTS block in supabase-schema.sql');
+      return res.status(503).json({ error: 'Customer accounts are not available yet. Please contact the store.' });
+    }
+    handleDbError(res, err, 'Could not check your login.');
+  }
+}
+
+// A real hash to compare against when the email doesn't exist, so the
+// response takes the same time and doesn't reveal which emails have accounts.
+let DUMMY_HASH;
+auth.hashPassword('not-a-real-password').then(h => { DUMMY_HASH = h; });
+
+app.post('/api/customer/register', sameOriginOnly, registerLimiter.middleware(), async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const phone = String(req.body?.phone || '').trim();
+    const password = String(req.body?.password || '');
+
+    if (name.length < 2 || name.length > 100) throw new HttpError(400, 'Please enter your full name.');
+    if (!auth.EMAIL_RE.test(email) || email.length > 254) throw new HttpError(400, 'Please enter a valid email address.');
+    if (!auth.PHONE_RE.test(phone)) throw new HttpError(400, 'Please enter a valid phone number.');
+    const pwProblem = auth.passwordProblem(password);
+    if (pwProblem) throw new HttpError(400, pwProblem);
+    // Customers must agree to the policies & privacy notice to create an account.
+    if (req.body?.acceptPolicies !== true) throw new HttpError(400, 'You must agree to the policies and privacy notice to create an account.');
+
+    const existing = await dbList('customer_accounts', { email: `eq.${email}`, select: 'id' });
+    if (existing.length) throw new HttpError(409, 'An account with this email already exists. Please log in instead.');
+
+    const passwordHash = await auth.hashPassword(password);
+    const rows = await dbInsert('customer_accounts', [{
+      name, email, phone, password_hash: passwordHash, policy_accepted_at: new Date().toISOString(),
+    }]);
+    const account = rows[0];
+
+    // keep the older "customers" list (used by admin stats) in step
+    try {
+      const known = await dbList('customers', { email: `eq.${email}`, select: 'id' });
+      if (!known.length) await dbInsert('customers', [{ name, email, joined_at: new Date().toISOString() }]);
+    } catch (err) { console.warn('Could not mirror customer:', err.message); }
+
+    await logActivity('customer_signup', `New customer account: ${name}`, { accountId: account.id });
+    startSession(res, account);
+    res.status(201).json({ customer: publicAccount(account) });
+  } catch (err) {
+    if (err.status === 409 && !err.expose) return res.status(409).json({ error: 'An account with this email already exists. Please log in instead.' });
+    handleDbError(res, err, 'Could not create your account.');
+  }
+});
+
+app.post('/api/customer/login', sameOriginOnly, async (req, res) => {
+  try {
+    // Locked out after 10 wrong passwords in 15 minutes (checked BEFORE the password).
+    if (loginFailLimiter.isBlocked(req)) {
+      return res.status(429).json({ error: 'Too many failed attempts. Please try again in 15 minutes.' });
+    }
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+    const rows = email && email.length <= 254
+      ? await dbList('customer_accounts', { email: `eq.${email}`, select: 'id,name,email,phone,password_hash' })
+      : [];
+    const account = rows[0];
+    const ok = await auth.verifyPassword(password.slice(0, 128), account ? account.password_hash : DUMMY_HASH);
+    if (!account || !ok) {
+      loginFailLimiter.hit(req);
+      return res.status(401).json({ error: 'Incorrect email or password.' });
+    }
+    startSession(res, account);
+    res.json({ customer: publicAccount(account) });
+  } catch (err) {
+    handleDbError(res, err, 'Could not log you in.');
+  }
+});
+
+app.post('/api/customer/logout', sameOriginOnly, (req, res) => {
+  res.setHeader('Set-Cookie', auth.sessionCookie('', { secure: IS_PRODUCTION, clear: true }));
+  res.json({ success: true });
+});
+
+// Tells the page who is logged in (null when nobody is).
+app.get('/api/customer/me', async (req, res) => {
+  try {
+    const account = await getCustomerFromRequest(req);
+    res.json({ customer: account ? publicAccount(account) : null });
+  } catch (err) {
+    if (err.status === 404) return res.json({ customer: null });
+    handleDbError(res, err, 'Could not check your login.');
+  }
+});
+
+async function sendPasswordResetEmail(to, name, link) {
+  if (!resendClient) { console.warn('Password reset requested but RESEND_API_KEY is not set.'); return; }
+  const safeName = escapeHtml(name);
+  const { error } = await resendClient.emails.send({
+    from: RESEND_FROM_EMAIL,
+    to,
+    subject: 'Reset your ENITOSIN STORE password',
+    text: [`Hello ${name},`, '', 'We received a request to reset your password. Open this link within 30 minutes:', link, '',
+      'If you did not ask for this, you can ignore this email — your password will stay the same.'].join('\n'),
+    html: `<div style="font-family:sans-serif;color:#222;">
+      <h2 style="color:#aa7c11;">ENITOSIN STORE</h2>
+      <p>Hello ${safeName},</p>
+      <p>We received a request to reset your password. This link works for 30 minutes:</p>
+      <p><a href="${escapeHtml(link)}" style="background:#aa7c11;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">Reset my password</a></p>
+      <p style="color:#777;font-size:13px;">If you did not ask for this, ignore this email — your password stays the same.</p>
+    </div>`,
+  });
+  if (error) console.error('Reset email failed:', error);
+}
+
+// Always answers the same way, so nobody can use this form to discover who has an account.
+app.post('/api/customer/forgot-password', sameOriginOnly, forgotLimiter.middleware(), async (req, res) => {
+  const generic = { success: true, message: 'If an account exists for that email, a reset link has been sent.' };
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!auth.EMAIL_RE.test(email) || email.length > 254) return res.json(generic);
+    const rows = await dbList('customer_accounts', { email: `eq.${email}`, select: 'id,name,email' });
+    if (rows.length) {
+      const { token, hash } = auth.newResetToken();
+      await dbUpdate('customer_accounts', { id: `eq.${rows[0].id}` }, {
+        reset_token_hash: hash,
+        reset_expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+      });
+      await sendPasswordResetEmail(rows[0].email, rows[0].name, `${publicOrigin(req)}/?reset=${token}`);
+    }
+    res.json(generic);
+  } catch (err) {
+    console.error('forgot-password error:', err);
+    res.json(generic); // never reveal errors here either
+  }
+});
+
+app.post('/api/customer/reset-password', sameOriginOnly, resetLimiter.middleware(), async (req, res) => {
+  try {
+    const token = String(req.body?.token || '');
+    const password = String(req.body?.password || '');
+    const pwProblem = auth.passwordProblem(password);
+    if (pwProblem) throw new HttpError(400, pwProblem);
+    if (!/^[a-f0-9]{64}$/.test(token)) throw new HttpError(400, 'This reset link is invalid or has expired. Please request a new one.');
+
+    const rows = await dbList('customer_accounts', { reset_token_hash: `eq.${auth.hashResetToken(token)}`, select: 'id,reset_expires_at' });
+    if (!rows.length || !rows[0].reset_expires_at || new Date(rows[0].reset_expires_at) < new Date()) {
+      throw new HttpError(400, 'This reset link is invalid or has expired. Please request a new one.');
+    }
+    // new password saved; the token is cleared so the link works only once
+    await dbUpdate('customer_accounts', { id: `eq.${rows[0].id}` }, {
+      password_hash: await auth.hashPassword(password), reset_token_hash: null, reset_expires_at: null,
+    });
+    await logActivity('customer_password_reset', `Customer ${rows[0].id} reset their password`, { accountId: rows[0].id });
+    res.json({ success: true });
+  } catch (err) {
+    handleDbError(res, err, 'Could not reset your password.');
+  }
+});
+
+// Admin: customer records (name, email, phone) for delivery and follow-up.
+app.get('/api/admin/customers', requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbList('customer_accounts', { select: 'id,name,email,phone,policy_accepted_at,created_at', order: 'created_at.desc' });
+    res.json(rows.map(r => ({
+      id: r.id, name: r.name, email: r.email, phone: r.phone,
+      policyAcceptedAt: r.policy_accepted_at, createdAt: r.created_at,
+    })));
+  } catch (err) {
+    if (err.status === 404) return res.json([]);
+    handleDbError(res, err, 'Could not load customers.');
+  }
+});
+
+// =====================================================================
 // PAYMENTS (Paystack)
 // =====================================================================
-app.post('/api/payments/initialize', checkoutLimiter.middleware(), async (req, res) => {
+app.post('/api/payments/initialize', sameOriginOnly, checkoutLimiter.middleware(), requireCustomer, async (req, res) => {
   try {
     if (!PAYSTACK_SECRET_KEY) {
       return res.status(503).json({ error: 'Payments are not configured yet. Please contact the store.' });
     }
     const { customer, items, orderType, deliveryZoneId } = req.body || {};
-    const { name, email, phone, address } = cleanCustomer(customer);
+    // WHO is ordering comes from the logged-in account, never from the form,
+    // so order updates always go to the email they signed up with and nobody
+    // can place an order under someone else's name. Only the phone (a
+    // delivery contact) and address come from the checkout form.
+    const account = req.customer;
+    const { name, email, phone, address } = cleanCustomer({
+      name: account.name,
+      email: account.email,
+      phone: customer?.phone || account.phone,
+      address: customer?.address,
+    }, { requireAddress: String(orderType) !== 'Pickup' });
     const resolvedOrderType = orderType === 'Pickup' ? 'Pickup' : 'Delivery';
 
     const { normalizedItems, total: itemsTotal } = await validateAndPriceItems(items);
@@ -636,7 +880,7 @@ app.post('/api/payments/initialize', checkoutLimiter.middleware(), async (req, r
         currency: 'NGN',
         callback_url: `${origin}/index.html`,
         metadata: {
-          customer: { name, email, phone, address },
+          customer: { name, email, phone, address, accountId: account.id },
           items: normalizedItems,
           orderType: resolvedOrderType,
           delivery, // { zoneId, area, fee } or null
@@ -712,7 +956,7 @@ async function fulfillPaidOrder(reference, metadata, paid = {}) {
 
   try {
     return await createOrderRecord({
-      customer: { name: customer.name, email: customer.email, phone: customer.phone, address: customer.address },
+      customer: { name: customer.name, email: customer.email, phone: customer.phone, address: customer.address, accountId: customer.accountId },
       normalizedItems,
       total,
       paymentStatus: amountOk ? 'Paid' : 'Check Payment',
