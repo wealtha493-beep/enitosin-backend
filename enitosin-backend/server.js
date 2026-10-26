@@ -203,30 +203,36 @@ async function sendOrderNotificationEmail(order) {
     if (!recipient) return;
 
     const money = n => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const sizeText = item => (item.size ? ` (Size ${item.size})` : '');
+    const deliveryInfo = order.customer.delivery;
     const itemsList = order.items
-      .map(item => `  • ${item.name}  x${item.qty}  —  ${money(item.price * item.qty)}`)
+      .map(item => `  • ${item.name}${sizeText(item)}  x${item.qty}  —  ${money(item.price * item.qty)}`)
       .join('\n');
 
     const textBody = [
-      `New order received: ${order.id}`, '',
+      `New order received: ${order.id}`,
+      `Type: ${order.orderType}`, '',
       `Customer: ${order.customer.name}`,
+      `Phone:    ${order.customer.phone || 'not provided'}`,
       `Email:    ${order.customer.email}`,
-      `Address:  ${order.customer.address}`, '',
+      `Address:  ${order.customer.address}`,
+      ...(deliveryInfo ? [`Area:     ${deliveryInfo.area}`] : []), '',
       'Items:', itemsList, '',
+      ...(deliveryInfo ? [`Dispatch rider fee: ${money(deliveryInfo.fee)}`] : []),
       `Total: ${money(order.total)}`,
       `Status: ${order.status}`,
       `Placed: ${new Date(order.createdAt).toLocaleString('en-NG')}`,
     ].join('\n');
 
     const itemsHtml = order.items.map(item =>
-      `<tr><td style="padding:4px 8px;">${escapeHtml(item.name)}</td><td style="padding:4px 8px;">x${Number(item.qty)}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
+      `<tr><td style="padding:4px 8px;">${escapeHtml(item.name)}${item.size ? ` (Size ${escapeHtml(item.size)})` : ''}</td><td style="padding:4px 8px;">x${Number(item.qty)}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
     ).join('');
 
     const htmlBody = `<div style="font-family:sans-serif;color:#222;">
       <h2 style="color:#aa7c11;">ENITOSIN STORE — New Order ${escapeHtml(order.id)}</h2>
-      <p><strong>Customer:</strong> ${escapeHtml(order.customer.name)}<br><strong>Email:</strong> ${escapeHtml(order.customer.email)}<br><strong>Address:</strong> ${escapeHtml(order.customer.address)}</p>
+      <p><strong>Type:</strong> ${escapeHtml(order.orderType)}<br><strong>Customer:</strong> ${escapeHtml(order.customer.name)}<br><strong>Phone:</strong> ${escapeHtml(order.customer.phone || 'not provided')}<br><strong>Email:</strong> ${escapeHtml(order.customer.email)}<br><strong>Address:</strong> ${escapeHtml(order.customer.address)}${deliveryInfo ? `<br><strong>Area:</strong> ${escapeHtml(deliveryInfo.area)}` : ''}</p>
       <table style="border-collapse:collapse;margin:12px 0;"><thead><tr><th style="text-align:left;padding:4px 8px;">Item</th><th style="text-align:left;padding:4px 8px;">Qty</th><th style="text-align:left;padding:4px 8px;">Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-      <p><strong>Total: ${money(order.total)}</strong><br>Status: ${escapeHtml(order.status)}<br>Placed: ${new Date(order.createdAt).toLocaleString('en-NG')}</p>
+      <p>${deliveryInfo ? `Dispatch rider fee: ${money(deliveryInfo.fee)}<br>` : ''}<strong>Total: ${money(order.total)}</strong><br>Status: ${escapeHtml(order.status)}<br>Placed: ${new Date(order.createdAt).toLocaleString('en-NG')}</p>
     </div>`;
 
     const { error } = await resendClient.emails.send({
@@ -264,8 +270,9 @@ async function sendOrderStatusEmail(order, status) {
       ? `Good news — your order has been accepted and is now being prepared${order.orderType === 'Pickup' ? ' for pickup' : ' for delivery'}.`
       : `We're sorry — your order could not be accepted. If you were charged, our team will process a refund shortly. Please reach out if you have any questions.`;
 
+    const feeInfo = order.customer?.delivery;
     const itemsList = (order.items || [])
-      .map(item => `  • ${item.name}  x${item.qty}  —  ${money(item.price * item.qty)}`)
+      .map(item => `  • ${item.name}${item.size ? ` (Size ${item.size})` : ''}  x${item.qty}  —  ${money(item.price * item.qty)}`)
       .join('\n');
 
     const textBody = [
@@ -273,11 +280,12 @@ async function sendOrderStatusEmail(order, status) {
       `Order: ${order.id}`,
       `Status: ${status}`, '',
       'Items:', itemsList, '',
+      ...(feeInfo ? [`Dispatch rider fee (${feeInfo.area}): ${money(feeInfo.fee)}`] : []),
       `Total: ${money(order.total)}`,
     ].join('\n');
 
     const itemsHtml = (order.items || []).map(item =>
-      `<tr><td style="padding:4px 8px;">${escapeHtml(item.name)}</td><td style="padding:4px 8px;">x${Number(item.qty)}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
+      `<tr><td style="padding:4px 8px;">${escapeHtml(item.name)}${item.size ? ` (Size ${escapeHtml(item.size)})` : ''}</td><td style="padding:4px 8px;">x${Number(item.qty)}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
     ).join('');
 
     const badgeColor = isAccepted ? '#2e7d32' : '#c62828';
@@ -286,7 +294,7 @@ async function sendOrderStatusEmail(order, status) {
       <p>${introText}</p>
       <p><strong>Order:</strong> ${escapeHtml(order.id)}<br><strong>Status:</strong> <span style="color:${badgeColor}; font-weight:bold;">${escapeHtml(status)}</span></p>
       <table style="border-collapse:collapse;margin:12px 0;"><thead><tr><th style="text-align:left;padding:4px 8px;">Item</th><th style="text-align:left;padding:4px 8px;">Qty</th><th style="text-align:left;padding:4px 8px;">Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-      <p><strong>Total: ${money(order.total)}</strong></p>
+      <p>${feeInfo ? `Dispatch rider fee (${escapeHtml(feeInfo.area)}): ${money(feeInfo.fee)}<br>` : ''}<strong>Total: ${money(order.total)}</strong></p>
     </div>`;
 
     const { error } = await resendClient.emails.send({
@@ -480,7 +488,7 @@ async function validateAndPriceItems(items) {
   }
   if (items.length > 50) throw new HttpError(400, 'Too many items in one order.');
 
-  const products = await dbList('products', { select: 'id,name,price' });
+  const products = await dbList('products', { select: 'id,name,price,sizes' });
   const normalizedItems = [];
   for (const item of items) {
     const product = products.find(p => String(p.id) === String(item.id));
@@ -488,22 +496,53 @@ async function validateAndPriceItems(items) {
     if (!product || !Number.isInteger(qty) || qty < 1 || qty > 99) {
       throw new HttpError(400, 'One or more order items are invalid or unavailable.');
     }
-    normalizedItems.push({ id: product.id, name: product.name, price: Number(product.price), qty });
+    // If the product comes in sizes, the customer's chosen size must be one of
+    // them, so the admin knows exactly which size to pack.
+    const available = Array.isArray(product.sizes) ? product.sizes.map(String) : [];
+    let size = '';
+    if (available.length) {
+      size = available.find(sz => sz.toLowerCase() === String(item.size || '').trim().toLowerCase()) || '';
+      if (!size) throw new HttpError(400, `Please choose a size for ${product.name}.`);
+    }
+    normalizedItems.push({ id: product.id, name: product.name, price: Number(product.price), qty, size });
   }
   const total = normalizedItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   return { normalizedItems, total: Number(total.toFixed(2)) };
 }
 
+// Works out the dispatch-rider fee for an order. The fee is ALWAYS read from
+// the database here on the server, never taken from the browser — otherwise a
+// customer could edit the request and pay ₦0 for delivery.
+// Returns null for pickup orders, or when the admin hasn't added any areas yet.
+async function resolveDelivery(orderType, zoneId) {
+  if (orderType === 'Pickup') return null;
+  let zones = [];
+  try {
+    zones = await dbList('delivery_zones', { select: 'id,name,fee' });
+  } catch (err) {
+    // 404 = the delivery_zones table hasn't been created yet (SQL not run).
+    // Keep checkout working with no fee instead of breaking every order.
+    if (err.status !== 404) throw err;
+    console.warn('delivery_zones table not found — run the delivery SQL in supabase-schema.sql');
+  }
+  if (!zones.length) return null;
+  const zone = zones.find(z => String(z.id) === String(zoneId));
+  if (!zone) throw new HttpError(400, 'Please choose your delivery area.');
+  return { zoneId: zone.id, area: zone.name, fee: Number(zone.fee) };
+}
+
 // Creates the actual order row in Supabase. Used both by the legacy
 // direct-order endpoint and by the Paystack payment flow once a
 // payment has been confirmed as successful.
-async function createOrderRecord({ customer, normalizedItems, total, paymentStatus, paymentReference, orderType }) {
-  const { name, email, address } = customer;
+async function createOrderRecord({ customer, normalizedItems, total, paymentStatus, paymentReference, orderType, delivery }) {
+  const { name, email, phone, address } = customer;
   const orderId = `EN-${Date.now().toString().slice(-8)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
   const createdAt = new Date().toISOString();
   const orderRecord = {
     id: orderId,
-    customer: { name, email, address },
+    // Phone and delivery area/fee live inside the existing `customer` JSON
+    // column, so the orders table needs no change.
+    customer: { name, email, phone, address, ...(delivery ? { delivery: { area: delivery.area, fee: delivery.fee } } : {}) },
     items: normalizedItems,
     total,
     status: 'Pending',
@@ -551,10 +590,12 @@ async function createOrderRecord({ customer, normalizedItems, total, paymentStat
 // emails. It now needs the admin key (e.g. for manually entering a phone order).
 app.post('/api/orders', requireAdmin, async (req, res) => {
   try {
-    const { customer, items, orderType } = req.body || {};
+    const { customer, items, orderType, deliveryZoneId } = req.body || {};
     const clean = cleanCustomer(customer);
-    const { normalizedItems, total } = await validateAndPriceItems(items);
-    const newOrder = await createOrderRecord({ customer: clean, normalizedItems, total, orderType });
+    const { normalizedItems, total: itemsTotal } = await validateAndPriceItems(items);
+    const delivery = await resolveDelivery(orderType === 'Pickup' ? 'Pickup' : 'Delivery', deliveryZoneId);
+    const total = Number((itemsTotal + (delivery?.fee || 0)).toFixed(2));
+    const newOrder = await createOrderRecord({ customer: clean, normalizedItems, total, orderType, delivery });
     res.status(201).json(newOrder);
   } catch (err) {
     handleDbError(res, err, 'Could not place order.');
@@ -569,12 +610,16 @@ app.post('/api/payments/initialize', checkoutLimiter.middleware(), async (req, r
     if (!PAYSTACK_SECRET_KEY) {
       return res.status(503).json({ error: 'Payments are not configured yet. Please contact the store.' });
     }
-    const { customer, items, orderType } = req.body || {};
+    const { customer, items, orderType, deliveryZoneId } = req.body || {};
     const { name, email, phone, address } = cleanCustomer(customer);
     const resolvedOrderType = orderType === 'Pickup' ? 'Pickup' : 'Delivery';
 
-    const { normalizedItems, total } = await validateAndPriceItems(items);
-    if (total <= 0) return res.status(400).json({ error: 'Order total must be greater than zero.' });
+    const { normalizedItems, total: itemsTotal } = await validateAndPriceItems(items);
+    if (itemsTotal <= 0) return res.status(400).json({ error: 'Order total must be greater than zero.' });
+
+    // Dispatch rider fee for the customer's chosen area (looked up server-side).
+    const delivery = await resolveDelivery(resolvedOrderType, deliveryZoneId);
+    const total = Number((itemsTotal + (delivery?.fee || 0)).toFixed(2));
 
     // Where Paystack sends the customer back. Prefer a fixed PUBLIC_URL so a
     // forged Host header can't make Paystack redirect buyers to another site.
@@ -594,6 +639,7 @@ app.post('/api/payments/initialize', checkoutLimiter.middleware(), async (req, r
           customer: { name, email, phone, address },
           items: normalizedItems,
           orderType: resolvedOrderType,
+          delivery, // { zoneId, area, fee } or null
         },
       }),
     });
@@ -643,7 +689,15 @@ async function fulfillPaidOrder(reference, metadata, paid = {}) {
 
   const customer = metadata?.customer || {};
   const items = metadata?.items || [];
-  const { normalizedItems, total } = await validateAndPriceItems(items.map(i => ({ id: i.id, qty: i.qty })));
+  const { normalizedItems, total: itemsTotal } = await validateAndPriceItems(items.map(i => ({ id: i.id, qty: i.qty, size: i.size })));
+
+  // The delivery fee was fixed by OUR server when payment started and Paystack
+  // stored it in the transaction's metadata (the customer can't alter it).
+  const metaFee = Number(metadata?.delivery?.fee);
+  const delivery = metadata?.delivery && Number.isFinite(metaFee) && metaFee >= 0
+    ? { zoneId: metadata.delivery.zoneId, area: String(metadata.delivery.area || '').slice(0, 100), fee: metaFee }
+    : null;
+  const total = Number((itemsTotal + (delivery?.fee || 0)).toFixed(2));
 
   // Check the money actually received matches the order total. If an admin
   // changed a price between "initialize" and "paid", or the amounts differ in
@@ -664,6 +718,7 @@ async function fulfillPaidOrder(reference, metadata, paid = {}) {
       paymentStatus: amountOk ? 'Paid' : 'Check Payment',
       paymentReference: reference,
       orderType: metadata?.orderType,
+      delivery,
     });
   } catch (err) {
     // The webhook and the browser-return can run at the same moment. The
@@ -784,6 +839,66 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
     res.json({ ...row, total: Number(row.total), createdAt: row.created_at });
   } catch (err) {
     handleDbError(res, err, 'Could not update order status.');
+  }
+});
+
+// =====================================================================
+// DELIVERY AREAS (dispatch rider fee per location)
+// The admin adds places and prices; customers pick one at checkout.
+// =====================================================================
+function cleanZone(body) {
+  const name = String(body?.name || '').trim();
+  const fee = Number(body?.fee);
+  if (!name || name.length > 100) throw new HttpError(400, 'Enter an area name (up to 100 characters).');
+  if (!Number.isFinite(fee) || fee < 0 || fee > 1_000_000) throw new HttpError(400, 'Enter a valid delivery fee (0 or more).');
+  return { name, fee: Number(fee.toFixed(2)) };
+}
+
+// Public: the storefront needs this list to fill the checkout dropdown.
+app.get('/api/delivery-zones', async (req, res) => {
+  try {
+    const rows = await dbList('delivery_zones', { select: 'id,name,fee', order: 'name.asc' });
+    res.json(rows.map(z => ({ id: z.id, name: z.name, fee: Number(z.fee) })));
+  } catch (err) {
+    // table not created yet -> behave as "no areas" so the store still works
+    if (err.status === 404) return res.json([]);
+    handleDbError(res, err, 'Could not load delivery areas.');
+  }
+});
+
+app.post('/api/delivery-zones', requireAdmin, async (req, res) => {
+  try {
+    const zone = cleanZone(req.body);
+    const rows = await dbInsert('delivery_zones', [zone]);
+    await logActivity('delivery_zone', `Delivery area added: ${zone.name} (₦${zone.fee})`, { zoneId: rows[0].id });
+    res.status(201).json({ id: rows[0].id, name: rows[0].name, fee: Number(rows[0].fee) });
+  } catch (err) {
+    if (err.status === 409) return res.status(409).json({ error: 'That area already exists. Edit it instead.' });
+    handleDbError(res, err, 'Could not add delivery area.');
+  }
+});
+
+app.put('/api/delivery-zones/:id', requireAdmin, async (req, res) => {
+  try {
+    const zone = cleanZone(req.body);
+    const rows = await dbUpdate('delivery_zones', { id: `eq.${req.params.id}` }, zone);
+    if (!rows.length) return res.status(404).json({ error: 'Delivery area not found.' });
+    await logActivity('delivery_zone', `Delivery area updated: ${zone.name} (₦${zone.fee})`, { zoneId: rows[0].id });
+    res.json({ id: rows[0].id, name: rows[0].name, fee: Number(rows[0].fee) });
+  } catch (err) {
+    if (err.status === 409) return res.status(409).json({ error: 'Another area already uses that name.' });
+    handleDbError(res, err, 'Could not update delivery area.');
+  }
+});
+
+app.delete('/api/delivery-zones/:id', requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbDelete('delivery_zones', { id: `eq.${req.params.id}` });
+    if (!rows.length) return res.status(404).json({ error: 'Delivery area not found.' });
+    await logActivity('delivery_zone', `Delivery area deleted: ${rows[0].name}`, { zoneId: rows[0].id });
+    res.json({ success: true });
+  } catch (err) {
+    handleDbError(res, err, 'Could not delete delivery area.');
   }
 });
 

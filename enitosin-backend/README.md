@@ -65,3 +65,10 @@ Product images are currently stored as data URLs in the `products.image` text co
 - Set `PUBLIC_URL` (and `NODE_ENV=production`) on Render. Rotate any key that was ever pasted into chat, email, or GitHub.
 - Run `npm audit` now and then, and `npm update` to pick up patched dependency versions.
 - Orders whose Paystack amount does not match the order total are saved with payment status "Check Payment" and logged as `payment_mismatch` — review them manually before shipping.
+
+## Delivery areas (dispatch rider fee)
+
+- Run the "DELIVERY AREAS" block at the bottom of `supabase-schema.sql` in the Supabase SQL Editor (safe to run again).
+- In `admin.html` open **Delivery Areas** to add places and prices. Customers pick their area at checkout and the fee is added to the total; Pick Up is always free.
+- The fee is always looked up on the server, never trusted from the browser.
+- Each order saves the customer's phone, area, fee and item sizes. Use **Copy Details** on an order to send the delivery info to your rider.

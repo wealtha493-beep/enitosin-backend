@@ -1177,11 +1177,18 @@
           <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem;">Shipping Address</label>
           <input type="text" id="checkoutAddress" required style="width:100%; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
         </div>
+        <div id="checkoutZoneField" style="display:none; margin-bottom: 1rem;">
+          <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem;">Delivery Area</label>
+          <select id="checkoutZone" onchange="updateCheckoutTotals()" style="width:100%; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;"></select>
+          <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.3rem;">The dispatch rider fee depends on your area.</p>
+        </div>
         <div id="checkoutPickupNotice" style="display:none; margin-bottom: 1rem; padding:0.9rem; background:rgba(212,175,55,0.08); border:1px solid var(--border-gold); border-radius:var(--radius-sm);">
           <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.3rem;">Pick up your order from:</p>
           <p style="font-weight:700; color:#fff; font-size:0.9rem;">306 Old Abeokuta Express Way,<br>Opposite Ile Epo Market</p>
         </div>
         <div style="border-top:1px solid var(--border-gold); padding-top:1rem; margin-top:1rem; text-align:right;">
+          <p style="margin-bottom:0.3rem; color:var(--text-muted); font-size:0.85rem;">Items: <span id="checkoutItemsTotal">₦0.00</span></p>
+          <p id="checkoutFeeRow" style="display:none; margin-bottom:0.3rem; color:var(--text-muted); font-size:0.85rem;">Dispatch rider: <span id="checkoutFee">₦0.00</span></p>
           <p style="margin-bottom:1rem; color:var(--text-muted);">Total Due: <span id="checkoutTotal" style="color:var(--gold-primary); font-weight:bold;">₦0.00</span></p>
           <button type="submit" class="gold-btn">Proceed to Payment</button>
         </div>
@@ -1447,7 +1454,7 @@
       });
 
       document.getElementById('cartSubtotal').innerText = `₦${total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      document.getElementById('checkoutTotal').innerText = `₦${total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      updateCheckoutTotals();
     }
 
     function toggleSearch() {
@@ -1505,7 +1512,13 @@
     }
 
     function closeQuickView() { document.getElementById('quickViewModal').classList.remove('active'); }
-    function openCheckout() { toggleCart(); document.getElementById('checkoutModal').classList.add('active'); handleOrderTypeChange(); }
+    async function openCheckout() {
+      toggleCart();
+      document.getElementById('checkoutModal').classList.add('active');
+      handleOrderTypeChange();
+      await loadDeliveryZones(); // fresh prices every time checkout opens
+      handleOrderTypeChange();
+    }
     function closeCheckout() { document.getElementById('checkoutModal').classList.remove('active'); }
 
     const STORE_PICKUP_ADDRESS = '306 Old Abeokuta Express Way, Opposite Ile Epo Market';
@@ -1516,15 +1529,62 @@
       const pickupNotice = document.getElementById('checkoutPickupNotice');
       const addressInput = document.getElementById('checkoutAddress');
 
+      const zoneField = document.getElementById('checkoutZoneField');
+      const zoneSelect = document.getElementById('checkoutZone');
+      const hasZones = deliveryZones.length > 0;
+
       if (type === 'Pickup') {
         addressField.style.display = 'none';
         pickupNotice.style.display = 'block';
         addressInput.required = false;
+        zoneField.style.display = 'none';
+        zoneSelect.required = false;
       } else {
         addressField.style.display = 'block';
         pickupNotice.style.display = 'none';
         addressInput.required = true;
+        zoneField.style.display = hasZones ? 'block' : 'none';
+        zoneSelect.required = hasZones;
       }
+      updateCheckoutTotals();
+    }
+
+    /* DELIVERY AREAS + CHECKOUT TOTALS
+       The fee shown here is only a preview. The server looks the fee up again
+       from the database when payment starts, so editing it here changes nothing. */
+    let deliveryZones = [];
+    const naira = n => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    async function loadDeliveryZones() {
+      try {
+        const res = await fetch(`${API_BASE}/delivery-zones`);
+        deliveryZones = res.ok ? await res.json() : [];
+      } catch (err) {
+        console.error('Could not load delivery areas', err);
+        deliveryZones = [];
+      }
+      const select = document.getElementById('checkoutZone');
+      const previous = select.value;
+      select.innerHTML = `<option value="">Select your area</option>` + deliveryZones.map(z =>
+        `<option value="${Number(z.id)}">${escapeHTML(z.name)} — ${naira(z.fee)}</option>`
+      ).join('');
+      if (previous && deliveryZones.some(z => String(z.id) === previous)) select.value = previous;
+    }
+
+    function selectedDeliveryFee() {
+      const type = document.querySelector('input[name="orderType"]:checked')?.value || 'Delivery';
+      if (type === 'Pickup') return 0;
+      const zone = deliveryZones.find(z => String(z.id) === document.getElementById('checkoutZone').value);
+      return zone ? Number(zone.fee) : 0;
+    }
+
+    function updateCheckoutTotals() {
+      const itemsTotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+      const fee = selectedDeliveryFee();
+      document.getElementById('checkoutItemsTotal').innerText = naira(itemsTotal);
+      document.getElementById('checkoutFeeRow').style.display = fee > 0 ? 'block' : 'none';
+      document.getElementById('checkoutFee').innerText = naira(fee);
+      document.getElementById('checkoutTotal').innerText = naira(itemsTotal + fee);
     }
 
     async function processOrder(e) {
@@ -1545,8 +1605,9 @@
 
       const payload = {
         customer: { name, email, phone, address },
-        items: cart.map(i => ({ id: i.id, qty: i.qty })),
+        items: cart.map(i => ({ id: i.id, qty: i.qty, size: i.size || '' })),
         orderType,
+        deliveryZoneId: orderType === 'Delivery' ? document.getElementById('checkoutZone').value : '',
       };
 
       const submitBtn = e.target.querySelector('button[type="submit"]');

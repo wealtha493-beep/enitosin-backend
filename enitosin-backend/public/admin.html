@@ -367,6 +367,7 @@
       <li class="active"><a href="#" onclick="return goToSection(event, 'top', this)">Dashboard</a></li>
       <li><a href="#" onclick="return goToSection(event, 'productsSection', this)">Products</a></li>
       <li><a href="#" onclick="return goToSection(event, 'ordersSection', this)">Orders</a></li>
+      <li><a href="#" onclick="return goToSection(event, 'zonesSection', this)">Delivery Areas</a></li>
       <li><a href="#" onclick="return goToSection(event, 'reviewsSection', this)">Reviews</a></li>
       <li><a href="#" onclick="return goToSection(event, 'top', this)">Customers</a></li>
       <li><a href="#" onclick="return goToSection(event, 'productsSection', this)">Inventory</a></li>
@@ -450,10 +451,10 @@
         <table>
           <thead>
             <tr>
-              <th>Order ID</th>
-              <th>Customer</th>
-              <th>Items</th>
-              <th>Total Amount</th>
+              <th>Order</th>
+              <th>Customer &amp; Delivery Details</th>
+              <th>Items to Pack</th>
+              <th>Amount</th>
               <th>Payment</th>
               <th>Fulfillment</th>
               <th>Status</th>
@@ -463,6 +464,25 @@
           <tbody id="adminOrdersTable">
             <!-- Populated live from the storefront checkout via /api/orders -->
           </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DELIVERY AREAS (dispatch rider fee per location) -->
+    <div class="dashboard-section" id="zonesSection">
+      <div class="section-header">
+        <h3>Delivery Areas &amp; Rider Fees</h3>
+      </div>
+      <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:1rem;">Add each place you deliver to and what the dispatch rider charges. Customers choose their area at checkout and the fee is added to their total. Pick Up orders are always free. If you add no areas, delivery has no extra fee.</p>
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:1rem;">
+        <input type="text" id="newZoneName" maxlength="100" placeholder="Area name e.g. Lekki" style="flex:2; min-width:160px; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+        <input type="number" id="newZoneFee" min="0" step="50" placeholder="Fee (₦) e.g. 3500" style="flex:1; min-width:120px; padding:0.6rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;">
+        <button class="gold-btn" onclick="addZone()">Add Area</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead><tr><th>Area</th><th>Rider Fee (₦)</th><th>Actions</th></tr></thead>
+          <tbody id="adminZonesTable"></tbody>
         </table>
       </div>
     </div>
@@ -851,29 +871,85 @@
       const tbody = document.getElementById('adminOrdersTable');
       tbody.innerHTML = '';
       if (!orders.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No orders yet — place one from the storefront to see it here.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No orders yet — place one from the storefront to see it here.</td></tr>`;
         return;
       }
+      adminOrders = {};
       orders.forEach(o => {
-        const itemsSummary = o.items.map(i => `${i.name} ×${i.qty}`).join(', ');
+        adminOrders[o.id] = o;
+        const c = o.customer || {};
+        const fee = Number(c.delivery?.fee || 0);
+        const itemsTotal = Number(o.total) - fee;
         const statusClassMap = { Pending: 'low-stock', Accepted: 'in-stock', Rejected: 'rejected' };
         const statusClass = statusClassMap[o.status] || 'low-stock';
+        const phoneDigits = String(c.phone || '').replace(/[^0-9+]/g, '');
+        const small = 'color:var(--text-muted); font-size:0.75rem;';
+        const itemsHtml = (o.items || []).map(i =>
+          `<div>• ${escapeHTML(i.name)}${i.size ? ` <strong>(Size ${escapeHTML(i.size)})</strong>` : ''} ×${Number(i.qty)}</div>`
+        ).join('');
+        const time = o.createdAt ? new Date(o.createdAt).toLocaleString('en-NG') : '';
         tbody.innerHTML += `
           <tr>
-            <td>#${escapeHTML(o.id)}</td>
-            <td>${escapeHTML(o.customer.name)}<br><span style="color:var(--text-muted); font-size:0.75rem;">${escapeHTML(o.customer.email)}</span>${o.customer.phone ? `<br><span style="color:var(--text-muted); font-size:0.75rem;">${escapeHTML(o.customer.phone)}</span>` : ''}</td>
-            <td>${escapeHTML(itemsSummary)}</td>
-            <td>₦${Number(o.total).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td>#${escapeHTML(o.id)}<br><span style="${small}">${escapeHTML(time)}</span></td>
+            <td style="min-width:230px;">
+              <strong>${escapeHTML(c.name)}</strong><br>
+              ${phoneDigits ? `📞 <a href="tel:${escapeHTML(phoneDigits)}" style="color:var(--gold-primary);">${escapeHTML(c.phone)}</a><br>` : `<span style="${small}">📞 no phone saved (older order)</span><br>`}
+              <span style="${small}">✉ ${escapeHTML(c.email)}</span><br>
+              ${o.orderType === 'Pickup'
+                ? `<span style="${small}">📍 Customer collects from the store</span>`
+                : `📍 ${escapeHTML(c.address)}${c.delivery?.area ? `<br><span style="${small}">Area: <strong>${escapeHTML(c.delivery.area)}</strong></span>` : ''}`}
+            </td>
+            <td style="min-width:200px;">${itemsHtml}</td>
+            <td style="white-space:nowrap;">
+              <span style="${small}">Items: ₦${itemsTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><br>
+              ${fee > 0 ? `<span style="${small}">Rider: ₦${fee.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><br>` : ''}
+              <strong>₦${Number(o.total).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+            </td>
             <td><span class="status-badge ${o.paymentStatus === 'Paid' ? 'in-stock' : 'rejected'}">${escapeHTML(o.paymentStatus || 'Unpaid')}</span></td>
             <td>${o.orderType === 'Pickup' ? '🏬 Pick Up' : '🚚 Delivery'}</td>
             <td><span class="status-badge ${escapeHTML(statusClass)}">${escapeHTML(o.status)}</span></td>
             <td>
               <button class="order-action-btn accept" ${o.status === 'Accepted' ? 'disabled' : ''} onclick="updateOrderStatus('${escapeHTML(o.id)}','Accepted')">Accept</button>
               <button class="order-action-btn reject" ${o.status === 'Rejected' ? 'disabled' : ''} onclick="updateOrderStatus('${escapeHTML(o.id)}','Rejected')">Reject</button>
+              <button class="order-action-btn" style="margin-top:0.3rem;" onclick="copyDeliveryDetails('${escapeHTML(o.id)}')">Copy Details</button>
             </td>
           </tr>
         `;
       });
+    }
+
+    // Builds a ready-to-send message for the dispatch rider (paste into WhatsApp).
+    let adminOrders = {};
+    async function copyDeliveryDetails(orderId) {
+      const o = adminOrders[orderId];
+      if (!o) return;
+      const c = o.customer || {};
+      const fee = Number(c.delivery?.fee || 0);
+      const money = n => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const lines = [
+        `ENITOSIN ORDER ${o.id}`,
+        `Type: ${o.orderType}`,
+        `Customer: ${c.name}`,
+        `Phone: ${c.phone || 'not provided'}`,
+        o.orderType === 'Pickup' ? 'Pick up at the store' : `Address: ${c.address}`,
+        ...(c.delivery?.area ? [`Area: ${c.delivery.area}`] : []),
+        '',
+        'Items:',
+        ...(o.items || []).map(i => `- ${i.name}${i.size ? ` (Size ${i.size})` : ''} x${i.qty}`),
+        '',
+        ...(fee > 0 ? [`Rider fee: ${money(fee)}`] : []),
+        `Total paid: ${money(o.total)} (${o.paymentStatus || 'Unpaid'})`,
+      ];
+      const text = lines.join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        // older browsers / non-secure pages: fall back to a hidden textarea
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } finally { ta.remove(); }
+      }
+      alert('Delivery details copied. Paste them to your dispatch rider.');
     }
 
     async function updateOrderStatus(orderId, status) {
@@ -890,6 +966,67 @@
       } catch (err) {
         alert(err.message);
       }
+    }
+
+    // ---------- delivery areas ----------
+    async function loadZones() {
+      const res = await fetch(`${API_BASE}/delivery-zones`);
+      if (!res.ok) return;
+      const zones = await res.json();
+      const tbody = document.getElementById('adminZonesTable');
+      if (!zones.length) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No delivery areas yet — add your first one above.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = zones.map(z => `
+        <tr>
+          <td><input type="text" id="zoneName${Number(z.id)}" value="${escapeHTML(z.name)}" maxlength="100" style="width:100%; min-width:140px; padding:0.4rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;"></td>
+          <td><input type="number" id="zoneFee${Number(z.id)}" value="${Number(z.fee)}" min="0" step="50" style="width:120px; padding:0.4rem; background:var(--bg-dark); border:1px solid var(--border-gold); color:#fff;"></td>
+          <td>
+            <button class="order-action-btn accept" onclick="saveZone(${Number(z.id)})">Save</button>
+            <button class="order-action-btn reject" onclick="deleteZone(${Number(z.id)})">Delete</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    async function zoneRequest(url, method, body) {
+      const res = await fetch(url, { method, headers: authHeaders(), body: body ? JSON.stringify(body) : undefined });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+      return data;
+    }
+
+    async function addZone() {
+      const name = document.getElementById('newZoneName').value.trim();
+      const fee = document.getElementById('newZoneFee').value;
+      try {
+        await zoneRequest(`${API_BASE}/delivery-zones`, 'POST', { name, fee });
+        document.getElementById('newZoneName').value = '';
+        document.getElementById('newZoneFee').value = '';
+        await loadZones();
+        await loadLogs();
+      } catch (err) { alert(err.message); }
+    }
+
+    async function saveZone(id) {
+      try {
+        await zoneRequest(`${API_BASE}/delivery-zones/${id}`, 'PUT', {
+          name: document.getElementById('zoneName' + id).value.trim(),
+          fee: document.getElementById('zoneFee' + id).value,
+        });
+        await loadZones();
+        await loadLogs();
+        alert('Saved.');
+      } catch (err) { alert(err.message); }
+    }
+
+    async function deleteZone(id) {
+      if (!confirm('Delete this delivery area? Old orders keep their saved fee.')) return;
+      try {
+        await zoneRequest(`${API_BASE}/delivery-zones/${id}`, 'DELETE');
+        await loadZones();
+        await loadLogs();
+      } catch (err) { alert(err.message); }
     }
 
     // ---------- reviews ----------
@@ -1028,6 +1165,7 @@
       await loadProducts();
       await loadStats();
       await loadOrders();
+      await loadZones();
       await loadAdminReviews();
       await loadLogs();
       await loadSettings();
