@@ -81,3 +81,12 @@ Product images are currently stored as data URLs in the `products.image` text co
 - "Forgot password" emails a link that works for 30 minutes and only once.
 - Passwords are stored as salted scrypt hashes (`customer-auth.js`); logins use a signed HttpOnly cookie. Set `SESSION_SECRET` on Render.
 - The admin page shows each ordered item's picture (click to enlarge) and a Customers list with name, email and phone.
+
+## Deploying on Render — checklist
+
+- **Node version:** set to 22 (`NODE_VERSION=22` in `render.yaml` and `.node-version`). Node 20 is end-of-life. If your Render service already exists, also set `NODE_VERSION` to `22` under *Environment* in the Render dashboard, because the dashboard value wins.
+- **Health check:** `/health` (set as `healthCheckPath`). It does not touch the database, so a short database problem will not restart the app.
+- **Install command:** `npm ci` installs exactly the versions in `package-lock.json`, so every deploy uses the same, reviewed packages.
+- **Required settings:** `ADMIN_KEY` (30+ random characters), `SESSION_SECRET`, `PUBLIC_URL`, `NODE_ENV=production`, plus your Supabase, Paystack and Resend keys.
+- **Check packages for known problems:** run `npm audit` on your computer now and then (and `npm audit fix` if it finds something). Render itself does not scan your code.
+- **Tests:** `npm test` runs the checks for the security and login helpers.

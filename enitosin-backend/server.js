@@ -84,6 +84,9 @@ const registerLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 10, mess
 const forgotLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 5, message: 'Too many reset requests. Please try again later.' });
 const resetLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 10 });
 app.use('/api', apiLimiter.middleware());
+// Never let a browser, proxy or CDN keep a copy of API answers: they can hold
+// order and customer details, and a cached copy could be shown to someone else.
+app.use('/api', (req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
 app.use(express.static(require('path').join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------
@@ -326,22 +329,22 @@ async function sendOrderStatusEmail(order, status) {
   }
 }
 
-async function healthHandler(req, res) {
+// /health is what Render pings. It only proves the server is alive — it does
+// NOT touch the database, so a short Supabase hiccup can't make Render think
+// the app is dead and restart it.
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// /api/health also checks the database. It says nothing about which database
+// or service is behind the app (that is information an attacker doesn't need).
+app.get('/api/health', async (req, res) => {
   try {
     await dbList('products', { select: 'id', limit: '1' });
-    res.json({ status: 'ok', database: 'supabase', server: 'enitosin' });
+    res.json({ status: 'ok', database: 'ok' });
   } catch (err) {
     console.error('Health check failed:', err.message);
-    res.status(503).json({
-      status: 'error',
-      database: 'unavailable',
-      message: 'The Enitosin server is running, but it cannot reach Supabase.'
-    });
+    res.status(503).json({ status: 'error', database: 'unavailable' });
   }
-}
-
-app.get('/health', healthHandler);
-app.get('/api/health', healthHandler);
+});
 
 // =====================================================================
 // PRODUCTS
@@ -1339,11 +1342,45 @@ app.get('/api/logs', requireAdmin, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+// Anything under /api that no route handled
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
+
+// Last-resort error handler. Without it, Express answers with an HTML page that
+// can include file paths and stack traces. This keeps errors short and private,
+// and turns bad requests (broken JSON, oversized bodies) into clean 4xx replies.
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err && err.type === 'entity.too.large') return res.status(413).json({ error: 'That request is too large.' });
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) return res.status(400).json({ error: 'Invalid request.' });
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Something went wrong. Please try again.' });
+});
+
+const server = app.listen(PORT, () => {
   console.log(`\n  ENITOSIN backend running → http://localhost:${PORT}`);
   console.log(`  Storefront:       http://localhost:${PORT}/index.html`);
   console.log(`  Admin dashboard:  http://localhost:${PORT}/admin.html`);
   console.log('  Admin key:        configured via environment variable');
   console.log(`  Database:         Supabase`);
   console.log(`  Order emails:     ${resendClient ? `enabled (sending as ${RESEND_FROM_EMAIL})` : 'disabled (set RESEND_API_KEY)'}`);
+  if (!process.env.SESSION_SECRET) console.warn('  WARNING: SESSION_SECRET is not set — using a key derived from ADMIN_KEY. Set SESSION_SECRET in production.');
+  if (ADMIN_KEY.length < 16) console.warn('  WARNING: ADMIN_KEY is short. Use 30+ random characters.');
+});
+
+// A failed background task (for example an email that couldn't send) should be
+// logged, not crash the whole store for every customer.
+process.on('unhandledRejection', reason => console.error('Unhandled promise rejection:', reason));
+process.on('uncaughtException', err => {
+  console.error('Uncaught exception:', err);
+  // the process is in an unknown state: finish current requests, then let Render restart it
+  server.close(() => process.exit(1));
+  setTimeout(() => process.exit(1), 10_000).unref();
+});
+
+// Render sends SIGTERM on every deploy/restart. Stop taking new requests, let
+// in-flight ones (like a payment confirmation) finish, then exit cleanly.
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received — shutting down gracefully.');
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 10_000).unref();
 });

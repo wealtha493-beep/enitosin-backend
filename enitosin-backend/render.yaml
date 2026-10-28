@@ -3,8 +3,9 @@ services:
     name: enitosin-store
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm ci
     startCommand: npm start
+    healthCheckPath: /health   # Render pings this; if it stops answering, Render restarts the app
     envVars:
       - key: ADMIN_KEY
         sync: false   # set this yourself in the Render dashboard — don't commit a real key
@@ -21,7 +22,7 @@ services:
       - key: SESSION_SECRET
         generateValue: true   # Render creates a long random secret for customer logins
       - key: NODE_VERSION
-        value: 20.11.0
+        value: "22"   # Node 20 reached end-of-life on 30 April 2026, so use a supported version
       - key: NODE_ENV
         value: production
       - key: PUBLIC_URL
