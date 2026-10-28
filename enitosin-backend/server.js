@@ -256,11 +256,11 @@ async function sendOrderNotificationEmail(order) {
   }
 }
 
-// Emails the CUSTOMER (not the admin) when their order is Accepted or
+// Emails the CUSTOMER (not the admin) when their order is Accepted, Delivered or
 // Rejected, so they aren't left wondering what happened after they paid.
 async function sendOrderStatusEmail(order, status) {
   if (!resendClient) return;
-  if (status !== 'Accepted' && status !== 'Rejected') return;
+  if (status !== 'Accepted' && status !== 'Rejected' && status !== 'Delivered') return;
 
   try {
     const recipient = String(order.customer?.email || '').trim();
@@ -268,13 +268,21 @@ async function sendOrderStatusEmail(order, status) {
 
     const money = n => `₦${Number(n).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const isAccepted = status === 'Accepted';
-    const subject = isAccepted
-      ? `Your ENITOSIN order ${order.id} has been accepted`
-      : `Update on your ENITOSIN order ${order.id}`;
+    const isDelivered = status === 'Delivered';
+    const isPickup = order.orderType === 'Pickup';
+    const subject = isDelivered
+      ? `Your ENITOSIN order ${order.id} has been ${isPickup ? 'collected' : 'delivered'}`
+      : isAccepted
+        ? `Your ENITOSIN order ${order.id} has been accepted`
+        : `Update on your ENITOSIN order ${order.id}`;
 
-    const introText = isAccepted
-      ? `Good news — your order has been accepted and is now being prepared${order.orderType === 'Pickup' ? ' for pickup' : ' for delivery'}.`
-      : `We're sorry — your order could not be accepted. If you were charged, our team will process a refund shortly. Please reach out if you have any questions.`;
+    const introText = isDelivered
+      ? (isPickup
+          ? `Your order has been marked as collected. Thank you for shopping with ENITOSIN! If anything is not right, please contact us.`
+          : `Good news — your order has been delivered. Thank you for shopping with ENITOSIN! If anything is missing or not right, please contact us as soon as possible.`)
+      : isAccepted
+        ? `Good news — your order has been accepted and is now being prepared${isPickup ? ' for pickup' : ' for delivery'}.`
+        : `We're sorry — your order could not be accepted. If you were charged, our team will process a refund shortly. Please reach out if you have any questions.`;
 
     const feeInfo = order.customer?.delivery;
     const itemsList = (order.items || [])
@@ -294,7 +302,7 @@ async function sendOrderStatusEmail(order, status) {
       `<tr><td style="padding:4px 8px;">${escapeHtml(item.name)}${item.size ? ` (Size ${escapeHtml(item.size)})` : ''}</td><td style="padding:4px 8px;">x${Number(item.qty)}</td><td style="padding:4px 8px;">${money(item.price * item.qty)}</td></tr>`
     ).join('');
 
-    const badgeColor = isAccepted ? '#2e7d32' : '#c62828';
+    const badgeColor = (isAccepted || isDelivered) ? '#2e7d32' : '#c62828';
     const htmlBody = `<div style="font-family:sans-serif;color:#222;">
       <h2 style="color:#aa7c11;">ENITOSIN STORE</h2>
       <p>${introText}</p>
@@ -1065,8 +1073,25 @@ app.get('/api/orders', requireAdmin, async (req, res) => {
 app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
   try {
     const { status } = req.body || {};
-    const allowedStatuses = ['Pending', 'Accepted', 'Rejected'];
+    const allowedStatuses = ['Pending', 'Accepted', 'Rejected', 'Delivered'];
     if (!allowedStatuses.includes(status)) return res.status(400).json({ error: 'Invalid order status.' });
+
+    const current = await dbList('orders', { id: `eq.${req.params.id}`, select: '*' });
+    if (!current.length) return res.status(404).json({ error: 'Order not found.' });
+
+    // Rules that stop mistakes (and stop the customer getting a wrong or repeated email):
+    //  - only an ACCEPTED order can be marked Delivered
+    //  - Delivered is final, and pressing it twice does nothing (no second email)
+    if (current[0].status === 'Delivered') {
+      if (status === 'Delivered') {
+        return res.json({ ...current[0], total: Number(current[0].total), createdAt: current[0].created_at, emailEnabled: Boolean(resendClient), alreadyDelivered: true });
+      }
+      return res.status(400).json({ error: 'This order has already been delivered and can no longer be changed.' });
+    }
+    if (status === 'Delivered' && current[0].status !== 'Accepted') {
+      return res.status(400).json({ error: 'Only an accepted order can be marked as delivered. Accept it first.' });
+    }
+
     const rows = await dbUpdate('orders', { id: `eq.${req.params.id}` }, { status });
     if (!rows.length) return res.status(404).json({ error: 'Order not found.' });
     const row = rows[0];
@@ -1080,7 +1105,8 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
       orderType: row.order_type,
     }, status).catch(console.error);
 
-    res.json({ ...row, total: Number(row.total), createdAt: row.created_at });
+    // emailEnabled lets the admin page say honestly whether an email could be sent
+    res.json({ ...row, total: Number(row.total), createdAt: row.created_at, emailEnabled: Boolean(resendClient) });
   } catch (err) {
     handleDbError(res, err, 'Could not update order status.');
   }

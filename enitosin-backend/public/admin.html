@@ -895,7 +895,9 @@
         const c = o.customer || {};
         const fee = Number(c.delivery?.fee || 0);
         const itemsTotal = Number(o.total) - fee;
-        const statusClassMap = { Pending: 'low-stock', Accepted: 'in-stock', Rejected: 'rejected' };
+        const statusClassMap = { Pending: 'low-stock', Accepted: 'in-stock', Rejected: 'rejected', Delivered: 'in-stock' };
+        const isDelivered = o.status === 'Delivered';
+        const doneLabel = o.orderType === 'Pickup' ? 'Collected' : 'Delivered';
         const statusClass = statusClassMap[o.status] || 'low-stock';
         const phoneDigits = String(c.phone || '').replace(/[^0-9+]/g, '');
         const small = 'color:var(--text-muted); font-size:0.75rem;';
@@ -904,8 +906,8 @@
         const itemsHtml = (o.items || []).map(i => {
           const prod = adminProducts.find(p => String(p.id) === String(i.id));
           const thumb = prod && prod.image
-            ? `<img src="${escapeHTML(prod.image)}" alt="${escapeHTML(i.name)}" title="Click to enlarge" onclick="viewProductImage(${Number(i.id)})" style="width:56px; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--border-gold); cursor:zoom-in; flex-shrink:0;">`
-            : `<div title="Picture not available (product removed)" style="width:56px; height:56px; border-radius:6px; border:1px dashed var(--border-gold); display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">🖼</div>`;
+            ? `<img src="${escapeHTML(prod.image)}" alt="${escapeHTML(i.name)}" title="Click to enlarge" onclick="viewProductImage(${Number(i.id)})" style="width:84px; height:84px; object-fit:cover; border-radius:6px; border:1px solid var(--border-gold); cursor:zoom-in; flex-shrink:0;">`
+            : `<div title="Picture not available (product removed)" style="width:84px; height:84px; border-radius:6px; border:1px dashed var(--border-gold); display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">🖼</div>`;
           return `<div style="display:flex; gap:0.6rem; align-items:center; margin-bottom:0.5rem;">${thumb}
             <div>${escapeHTML(i.name)}${i.size ? `<br><strong>Size ${escapeHTML(i.size)}</strong>` : ''}<br><span style="color:var(--text-muted); font-size:0.75rem;">Qty ×${Number(i.qty)}</span></div></div>`;
         }).join('');
@@ -931,8 +933,10 @@
             <td>${o.orderType === 'Pickup' ? '🏬 Pick Up' : '🚚 Delivery'}</td>
             <td><span class="status-badge ${escapeHTML(statusClass)}">${escapeHTML(o.status)}</span></td>
             <td>
+              ${isDelivered ? `<div style="color:#4caf50; font-weight:600; font-size:0.85rem; margin-bottom:0.3rem;">✓ ${doneLabel}</div>` : `
               <button class="order-action-btn accept" ${o.status === 'Accepted' ? 'disabled' : ''} onclick="updateOrderStatus('${escapeHTML(o.id)}','Accepted')">Accept</button>
               <button class="order-action-btn reject" ${o.status === 'Rejected' ? 'disabled' : ''} onclick="updateOrderStatus('${escapeHTML(o.id)}','Rejected')">Reject</button>
+              ${o.status === 'Rejected' ? '' : `<button class="order-action-btn" style="border-color:var(--gold-primary); color:var(--gold-primary);" ${o.status === 'Accepted' ? '' : 'disabled title="Accept the order first"'} onclick="markDelivered('${escapeHTML(o.id)}')">Mark ${doneLabel}</button>`}`}
               <button class="order-action-btn" style="margin-top:0.3rem;" onclick="copyDeliveryDetails('${escapeHTML(o.id)}')">Copy Details</button>
             </td>
           </tr>
@@ -985,9 +989,23 @@
         if (!res.ok) throw new Error(data.error || 'Could not update order status.');
         await loadOrders();
         await loadLogs();
+        // Tell the admin plainly whether the customer was emailed.
+        if (status === 'Delivered' && !data.alreadyDelivered) {
+          alert(data.emailEnabled
+            ? 'Marked as delivered. The customer has been emailed.'
+            : 'Marked as delivered, but NO email was sent because the email service is not set up on the server.');
+        }
       } catch (err) {
         alert(err.message);
       }
+    }
+
+    // "Delivered" can't be undone and emails the customer, so ask first.
+    function markDelivered(orderId) {
+      const o = adminOrders[orderId];
+      const who = o?.customer?.email ? ` and email ${o.customer.email}` : '';
+      if (!confirm(`Mark order #${orderId} as ${o?.orderType === 'Pickup' ? 'collected' : 'delivered'}${who}? This cannot be undone.`)) return;
+      updateOrderStatus(orderId, 'Delivered');
     }
 
     // ---------- big picture viewer ----------
